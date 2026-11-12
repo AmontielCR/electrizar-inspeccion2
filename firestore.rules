@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function miembro() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/equipo/$(request.auth.uid)).data.rol in ["operario", "ingeniero", "admin"];
+    }
+    function botPropio(informe) {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/equipo/$(request.auth.uid)).data.rol == "bot_telegram" &&
+        informe.matches('tg_' + request.auth.uid + '_[a-z0-9-]+');
+    }
+    function administrador() {
+      return miembro() &&
+        get(/databases/$(database)/documents/equipo/$(request.auth.uid)).data.rol == "admin";
+    }
+    match /informes/{informe} {
+      allow read: if miembro();
+      allow get: if botPropio(informe);
+      allow create, update: if (miembro() || (botPropio(informe) &&
+        request.resource.data.tipo == "generador" && request.resource.data.origenTelegram == true)) &&
+        request.resource.data.id == informe &&
+        request.resource.data.revisionElectrizar is string &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if administrador();
+      match /partes/{parte} {
+        allow read: if miembro() || botPropio(informe);
+        allow create, update: if (miembro() || botPropio(informe)) &&
+          request.resource.data.contenido is bytes &&
+          request.resource.data.contenido.size() <= 600000 &&
+          request.resource.data.revision ==
+            getAfter(/databases/$(database)/documents/informes/$(informe)).data.revisionElectrizar;
+        allow delete: if administrador() || ((miembro() || botPropio(informe)) &&
+          existsAfter(/databases/$(database)/documents/informes/$(informe)) &&
+          getAfter(/databases/$(database)/documents/informes/$(informe)).data.updatedAt == request.time);
+      }
+    }
+    match /equipo/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+    }
+    match /telegramSesiones/{botUid}/usuarios/{telegramUid} {
+      allow read, write: if request.auth != null && request.auth.uid == botUid &&
+        get(/databases/$(database)/documents/equipo/$(request.auth.uid)).data.rol == "bot_telegram";
+    }
+  }
+}

@@ -1,0 +1,7 @@
+Electrizar Informes 2.1 — StackBlitz / GitHub / Vercel
+Guía principal: VERCEL-STACKBLITZ.md
+Publicación en tu proyecto actual para conservar electrizar-inspeccion.vercel.app.
+Telegram opcional: función /api/telegram y sesiones en Firestore.
+Configurar Firebase Authentication y las variables de Vercel antes de desplegar.
+Verificado: TypeScript, compilación y 10 pruebas automáticas.
+Las pruebas con tu cuenta Vercel/Firebase y Telegram deben completarse al configurar.
