@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { iniciarSesion, observarSesion, cerrarSesion, nubeActiva, observarInformes, sincronizar, borrarRemoto, descargarInforme } from "./nube";
 import { leerBorradores, escribirBorrador, quitarBorrador, type Borrador } from "./borradores";
 import { FichaLocal, useAutoguardadoFicha } from "./FichaLocal";
+import { PanelTrabajos } from "./PanelTrabajos";
 import { consultaRecuperable } from "./consultaRecuperable";
 import { SelectorView as Sitios, NuevoView as NuevaOperacion, NuevoGenerador, InformeView as Operacion } from "./Operaciones";
 import {
@@ -312,26 +313,26 @@ function LoginView({ onLogin }: { onLogin: (nombre: string) => void }) {
     finally { setCargando(false); }
   };
   return (
-    <div className="min-h-screen grid place-items-center p-6" style={{background:DARK}}>
-      <form onSubmit={entrar} className="w-full max-w-sm bg-white rounded-3xl p-6 space-y-4">
+    <div className="login-page">
+      <div className="login-brand"><Logo white/><div><p className="eyebrow">ELECTRIZAR EN CAMPO</p><h2>El trabajo bien hecho empieza con cada detalle.</h2><p>Inspecciones, mantenimiento y operación en un mismo lugar.</p></div><span>Constructora Electromecánica</span></div><form onSubmit={entrar} className="login-form space-y-4">
         <Logo />
-        <h1 className="text-xl font-bold">Sistema de Informes Técnicos</h1>
+        <div className="login-title"><p className="eyebrow">INFORMES TÉCNICOS</p><h1>Bienvenido a Electrizar</h1><p>Ingresa para continuar con tu trabajo.</p></div>
         {!nubeActiva && <p className="text-sm text-gray-600">Piloto local. Los borradores se guardan en este dispositivo.</p>}
         <label className="block text-sm font-semibold">{nubeActiva ? "Correo electrónico" : "Nombre del responsable"}
-          <input className="block w-full border rounded-xl p-2 mt-1" required value={identificador} onChange={e => setIdentificador(e.target.value)} type={nubeActiva ? "email" : "text"} />
+          <input className="block w-full border rounded-xl p-2 mt-1" autoComplete={nubeActiva ? "username" : "name"} required value={identificador} onChange={e => setIdentificador(e.target.value)} type={nubeActiva ? "email" : "text"} />
         </label>
         {nubeActiva && <label className="block text-sm font-semibold">Contraseña
-          <input className="block w-full border rounded-xl p-2 mt-1" type="password" required value={clave} onChange={e => setClave(e.target.value)} />
+          <input className="block w-full border rounded-xl p-2 mt-1" type="password" autoComplete="current-password" required value={clave} onChange={e => setClave(e.target.value)} />
         </label>}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <button disabled={cargando} className="w-full font-bold p-3 rounded-xl" style={{background:Y}}>Entrar</button>
+        <button disabled={cargando} className="w-full font-bold p-3 rounded-xl" style={{background:Y}}>{cargando ? "Ingresando…" : "Entrar al sistema"}</button>
       </form>
     </div>
   );
 }
 
 /* ══ SELECTOR ══ */
-function TipoSelectorView({onSelect,usuario,onLogout}:any){return(<div className="min-h-screen flex flex-col" style={{background:DARK}}><header className="px-4 py-4 flex items-center justify-between"><Logo white/><div className="text-right"><div className="text-white text-xs font-bold">{usuario.nombre}</div><button onClick={onLogout} className="text-white/40 hover:text-white/70 text-[10px]">Cerrar sesión</button></div></header><div className="flex-1 flex flex-col items-center justify-center p-6"><h2 className="text-white font-extrabold text-xl text-center mb-2">¿Qué vas a realizar?</h2><p className="text-white/40 text-sm text-center mb-8">Selecciona el tipo de trabajo</p><div className="w-full max-w-sm space-y-3"><button onClick={()=>onSelect("verificacion")} className="w-full bg-white rounded-2xl p-5 text-left hover:bg-gray-50 active:scale-95 transition-all shadow-xl"><div className="flex items-start gap-4"><div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0" style={{background:Y+"22"}}>🔍</div><div><div className="font-extrabold text-gray-900 text-base mb-0.5">Verificación Eléctrica</div><div className="text-xs text-gray-500 leading-relaxed">Resultado: <b>Aprobada</b>, <b>Condicionada</b> o <b>Rechazada</b>. Incluye plazo de mejoras.</div><div className="mt-1.5 text-[10px] font-bold uppercase tracking-wider" style={{color:Y}}>RTCR 458:2011 · NEC 2020</div></div></div></button><button onClick={()=>onSelect("inspeccion")} className="w-full rounded-2xl p-5 text-left hover:opacity-90 active:scale-95 transition-all shadow-xl border-2" style={{background:DARK,borderColor:Y+"60"}}><div className="flex items-start gap-4"><div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0" style={{background:Y+"30"}}>⚡</div><div><div className="font-extrabold text-white text-base mb-0.5">Inspección Eléctrica</div><div className="text-xs text-white/60 leading-relaxed">Resultado: <b className="text-white/80">Aprobada</b> o <b className="text-white/80">No Aprobada</b>. Sin plazo de mejoras.</div><div className="mt-1.5 text-[10px] font-bold uppercase tracking-wider" style={{color:Y}}>NEC 2020</div></div></div></button><button onClick={()=>onSelect("ac")} className="w-full rounded-2xl p-5 text-left hover:opacity-90 active:scale-95 transition-all shadow-xl border-2" style={{background:"#0c4a6e",borderColor:"#38bdf8aa"}}><div className="flex items-start gap-4"><div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0" style={{background:"#38bdf822"}}>🌡️</div><div><div className="font-extrabold text-white text-base mb-0.5">Mantenimiento de Aires</div><div className="text-xs text-white/60 leading-relaxed">Mantenimiento preventivo de equipos de aire acondicionado. 4 fotos por equipo.</div><div className="mt-1.5 text-[10px] font-bold uppercase tracking-wider" style={{color:"#38bdf8"}}>PREVENTIVO · CORRECTIVO</div></div></div></button><button onClick={()=>onSelect("operacion")} className="w-full bg-white rounded-2xl p-5 text-left shadow-xl"><span className="block font-extrabold">Operación de sitios</span><span className="text-sm text-gray-600">El Esfuerzo · Orokay II · EBAR Las Anas</span></button><button onClick={()=>onSelect("generador")} className="w-full bg-white rounded-2xl p-5 text-left shadow-xl"><span className="block font-extrabold">Mantenimiento de generadores</span><span className="text-sm text-gray-600">Plan Inspección y Plan Energía</span></button><button onClick={()=>onSelect("home")} className="w-full py-3 rounded-xl font-bold text-sm text-white/50 hover:text-white/80 transition-colors">📋 Ver informes existentes</button></div></div></div>);}
+function TipoSelectorView(props:any){return <PanelTrabajos {...props} marca={<Logo white/>}/>;}
 
 /* ══ ANNOTATION EDITOR ══ */
 function AnnotationEditor({imageUrl,onConfirm,onClose}:any){
@@ -416,7 +417,7 @@ function HomeView({informes,loading,onNew,onOpen,usuario,onLogout,onDelete,estad
   const handleWord=async(inf:any)=>{setExp(inf.id);try{if(inf.tipo==="ac")await generateWordAC(inf);else await generateWordElectrico(inf);}catch(e:any){alert("Error al generar Word: "+e.message);}finally{setExp(null);}};
   const handleZip=async(inf:any)=>{setExp(inf.id+"zip");try{await downloadImagesZip(inf);}catch(e:any){alert("Error al generar ZIP: "+e.message);}finally{setExp(null);};};
   const handleShare=(inf:any)=>{if(inf.tipo==="ac")generatePDFAC(inf);else generatePDFElectrico(inf);setTimeout(()=>alert("El PDF se generó. Usa el botón Compartir del visor de impresión para enviarlo por WhatsApp, correo u otra app."),800);};
-  return(<div className="min-h-screen" style={{background:"#f8f9fb"}}>
+  return(<div className="min-h-screen report-history" style={{background:"#f4f6fa"}}>
     <header style={{background:DARK}} className="px-4 py-4 sticky top-0 z-10 shadow-lg">
       <div className="flex items-center justify-between max-w-2xl mx-auto">
         <Logo white/>
@@ -430,8 +431,8 @@ function HomeView({informes,loading,onNew,onOpen,usuario,onLogout,onDelete,estad
         {TABS.map(t=>(<button key={t.id} onClick={()=>setTab(t.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${tabActiva===t.id?"text-gray-900":"text-white/50 hover:text-white/80"}`} style={tabActiva===t.id?{background:Y}:{background:"rgba(255,255,255,0.08)"}}><span>{t.icon}</span><span>{t.label}</span><span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${tabActiva===t.id?"bg-black/20 text-gray-900":"bg-white/10 text-white/60"}`}>{conteo(t.id)}</span></button>))}
       </div>
     </header>
-    <div className="p-4 max-w-2xl mx-auto">
-      <div className="relative mb-3"><input value={busqueda} onChange={(e:any)=>setBusq(e.target.value)} placeholder="🔍 Buscar por cliente o código…" className="w-full border-2 border-gray-100 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-amber-400 transition-all pr-8"/>{busqueda&&<button onClick={()=>setBusq("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 font-bold">✕</button>}</div>
+    <div className="p-4 max-w-2xl mx-auto history-content">
+      <div className="history-title"><p className="eyebrow">ARCHIVO DE TRABAJO</p><h1>Mis informes</h1><p>Consulta tus visitas, retoma borradores y descarga documentos.</p></div><div className="relative mb-3"><input aria-label="Buscar informes por cliente o código" value={busqueda} onChange={(e:any)=>setBusq(e.target.value)} placeholder="Buscar por cliente o código…" className="w-full border-2 border-gray-100 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-amber-400 transition-all pr-8"/>{busqueda&&<button onClick={()=>setBusq("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 font-bold">✕</button>}</div>
       <div className="flex items-center justify-between mb-4 mt-1">
         <h2 className="font-bold text-gray-400 text-xs uppercase tracking-widest">{TABS.find(t=>t.id===tabActiva)?.label} ({filtrados.length})</h2>
         <span className={`text-xs font-medium ${online?"text-green-500":"text-amber-400"}`}>{online?"🔄 En línea":"📵 Sin conexión"}</span>
@@ -499,7 +500,7 @@ function NuevoView({onCreate,onBack,usuario,tipo,informes}:any){
       else await onCreate({...base,elementos:[],resultado:null,plazo:"12 meses",notas:notaFinal});
     } finally { setCreating(false); }
   };
-  return(<div className="min-h-screen" style={{background:"#f8f9fb"}}>
+  return(<div className="min-h-screen report-history" style={{background:"#f4f6fa"}}>
     <header style={{background:DARK}} className="px-4 py-4 sticky top-0 z-10"><div className="flex items-center gap-3 max-w-lg mx-auto"><button onClick={onBack} className="text-white/60 hover:text-white text-xl transition-colors">←</button><Logo sm white/><span className="font-bold text-white text-sm ml-1">{tipoLabel}</span></div></header>
     <div className="p-4 max-w-lg mx-auto space-y-3 pb-24">
       <Card title="Identificación" accent>
@@ -630,7 +631,7 @@ function MantenimientoACView({informe,onUpdate,onBack,onFinalize,guardado,cuenta
   const saveEquipo=async(eq:any)=>{const list=[...equipos];if(editIdx!==null)list[editIdx]={...eq,num:editIdx+1};else list.push({...eq,num:list.length+1});const updated={...informe,equipos:list};const ok = await onUpdate(updated, claveFicha); if (ok) setModal(false); return ok;};
   const delEquipo=(i:number)=>{if(!confirm("¿Eliminar este equipo?"))return;const list=equipos.filter((_:any,j:number)=>j!==i).map((e:any,j:number)=>({...e,num:j+1}));const updated={...informe,equipos:list};onUpdate(updated);};
   const handleFinalizar=()=>{if(equipos.length===0){alert("Agrega al menos un equipo antes de finalizar.");return;}const updated={...informe,resultado:"Completado",finalizadoAt:Date.now()};onFinalize(updated);};
-  return(<div className="min-h-screen" style={{background:"#f8f9fb"}}>
+  return(<div className="min-h-screen report-history" style={{background:"#f4f6fa"}}>
     <header style={{background:"#0c4a6e"}} className="px-4 py-4 sticky top-0 z-10 shadow-lg">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-2 mb-2"><button onClick={onBack} className="text-white/60 hover:text-white text-xl transition-colors">←</button><Logo sm white/><span className="ml-auto text-[10px] font-bold px-2 py-1 rounded-lg" style={{background:"#38bdf822",color:"#38bdf8"}}>AIRES AC</span></div>
@@ -734,7 +735,7 @@ function InspeccionView({informe,onUpdate,onBack,onFinalize,guardado,cuenta}:any
   const moveEl=(i:number,dir:number)=>{const els=[...informe.elementos];const j=i+dir;if(j<0||j>=els.length)return;[els[i],els[j]]=[els[j],els[i]];const renumbered=els.map((e,k)=>({...e,num:k+1}));const updated={...informe,elementos:renumbered};onUpdate(updated);};
   const handleFinalize=async(data:any)=>{const updated={...informe,...data};const ok=await onFinalize(updated);if(ok)setFinalM(false);return ok;};
   const alta=(informe.elementos||[]).filter((e:any)=>e.prioridad==="alta").length,total=informe.elementos?.length||0;
-  return(<div className="min-h-screen" style={{background:"#f8f9fb"}}>
+  return(<div className="min-h-screen report-history" style={{background:"#f4f6fa"}}>
     <header style={{background:DARK}} className="px-4 py-4 sticky top-0 z-10 shadow-lg">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-2 mb-2"><button onClick={onBack} className="text-white/60 hover:text-white text-xl transition-colors">←</button><Logo sm white/><span className="ml-auto text-[10px] font-bold px-2 py-1 rounded-lg" style={{background:Y+"30",color:Y}}>{tipoLabel.toUpperCase()}</span></div>

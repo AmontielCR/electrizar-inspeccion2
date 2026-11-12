@@ -1,3 +1,4 @@
+import { Icono } from "./PanelTrabajos";
 import { crearElementos, tareaCompleta } from "./checklists";
 import { useState, useRef } from "react";
 import { FichaLocal, useAutoguardadoFicha } from "./FichaLocal";
@@ -320,7 +321,7 @@ const generateWord=async(inf:any)=>{
 };
 
 /* ══ UI ATOMS ══ */
-const Logo=({sm,white}:{sm?:boolean,white?:boolean})=>(<div className="flex items-center gap-2"><div className={`${sm?"w-7 h-7":"w-10 h-10"} flex items-center justify-center rounded-md flex-shrink-0`} style={{background:Y}}><svg viewBox="0 0 22 22" className={sm?"w-4 h-4":"w-6 h-6"} fill="white"><rect x="2" y="2" width="18" height="3"/><rect x="2" y="8.5" width="11" height="3"/><rect x="2" y="15" width="18" height="3"/><polygon points="14,8.5 18,8.5 15,12.5 19,12.5 12,20 13,13.5 9,13.5"/></svg></div><div><div className={`font-bold leading-tight ${sm?"text-xs":"text-sm"} ${white?"text-white":"text-gray-900"}`}>Electrizar</div><div className={`leading-tight ${sm?"text-[9px]":"text-[10px]"}`} style={{color:Y}}>Operaciones · PTAR</div></div></div>);
+const Logo=({sm,white}:{sm?:boolean,white?:boolean})=>(<div className="flex items-center gap-2"><div className={`${sm?"w-7 h-7":"w-10 h-10"} flex items-center justify-center rounded-md flex-shrink-0`} style={{background:Y}}><svg viewBox="0 0 22 22" className={sm?"w-4 h-4":"w-6 h-6"} fill="white"><rect x="2" y="2" width="18" height="3"/><rect x="2" y="8.5" width="11" height="3"/><rect x="2" y="15" width="18" height="3"/><polygon points="14,8.5 18,8.5 15,12.5 19,12.5 12,20 13,13.5 9,13.5"/></svg></div><div><div className={`font-bold leading-tight ${sm?"text-xs":"text-sm"} ${white?"text-white":"text-gray-900"}`}>Electrizar</div><div className={`leading-tight ${sm?"text-[9px]":"text-[10px]"}`} style={{color:Y}}>Informes técnicos</div></div></div>);
 const FI=({label,value,onChange,...rest}:any)=>(<div><label className="block text-xs font-semibold text-gray-400 mb-1 uppercase tracking-wider">{label}</label><input value={value} onChange={onChange} className="w-full border-2 border-gray-100 rounded-xl px-3 py-2.5 text-sm text-gray-800 bg-gray-50 focus:outline-none focus:border-amber-400 focus:bg-white transition-all" {...rest}/></div>);
 const Btn=({children,onClick,sm,disabled,full,color=Y,className=""}:any)=>(<button onClick={onClick} disabled={disabled} className={`font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 ${sm?"px-3 py-2 text-sm":"px-5 py-3"} ${full?"w-full":""} ${disabled?"opacity-50 cursor-not-allowed":"hover:opacity-90"} ${className}`} style={{background:disabled?"#9ca3af":color,color:"white"}}>{children}</button>);
 const Card=({title,children,accent}:any)=>(<div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">{title&&<div className="px-4 pt-4 pb-2 flex items-center gap-2">{accent&&<div className="w-1 h-4 rounded-full" style={{background:Y}}/>}<h3 className="font-bold text-gray-700 text-xs uppercase tracking-widest">{title}</h3></div>}<div className="px-4 pb-4 space-y-3">{children}</div></div>);
@@ -336,22 +337,14 @@ const PhotoBtns=({onPick,label}:{onPick:(mode:string)=>void,label:string})=>(
 
 /* ══ LOGIN ══ */
 export function SelectorView({onSelect,onVer,usuario}:any){
-  return(<div className="min-h-screen flex flex-col" style={{background:DARK}}>
-    <header className="px-4 py-4 flex items-center justify-between"><Logo white/><div className="text-right"><div className="text-white text-xs font-bold">{usuario.nombre}</div></div></header>
-    <div className="flex-1 flex flex-col items-center justify-center p-6"><h2 className="text-white font-extrabold text-xl text-center mb-2">¿Qué informe vas a elaborar?</h2><p className="text-white/40 text-sm text-center mb-8">Selecciona la planta o estación</p>
-      <div className="w-full max-w-sm space-y-3">
-        {Object.entries(PLANTAS).map(([clave, P])=>(
-          <button key={clave} onClick={()=>onSelect(clave)} className="w-full bg-white rounded-2xl p-5 text-left hover:bg-gray-50 active:scale-95 transition-all shadow-xl">
-            <div className="flex items-start gap-4"><div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0" style={{background:P.color+"22"}}>{P.icon}</div>
-            <div><div className="font-extrabold text-gray-900 text-base mb-0.5">{P.nombre}</div><div className="text-xs text-gray-500 leading-relaxed">{P.lugar}</div><div className="mt-1.5 text-[10px] font-bold uppercase tracking-wider" style={{color:P.color}}>{P.agrupado?"POR VISITAS · FUPROVI":"BISEMANAL · FUPROVI"}</div></div></div>
-          </button>
-        ))}
-        <button onClick={onVer} className="w-full py-3 rounded-xl font-bold text-sm text-white/50 hover:text-white/80 transition-colors">← Volver a tipos de informe</button>
-      </div>
-    </div>
-  </div>);
+  return <div className="workspace-shell">
+    <header className="workspace-header"><div className="workspace-header-inner"><Logo white/><span className="account-name">{usuario.nombre}</span></div></header>
+    <main className="workspace-main"><button onClick={onVer} className="back-link">← Tipos de trabajo</button>
+      <div className="workspace-intro"><div><p className="eyebrow">OPERACIÓN DE SITIOS</p><h1>Cada sitio, su propio informe.</h1><p className="intro-description">Selecciona la planta o estación para comenzar el registro de actividades.</p></div></div>
+      <div className="service-grid">{Object.entries(PLANTAS).map(([clave,P]) => <button key={clave} onClick={()=>onSelect(clave)} className="service-card service-verde"><div className="service-card-top"><span className="service-icon"><Icono nombre="agua"/></span><Icono nombre="flecha" className="service-arrow"/></div><h3>{P.nombre}</h3><p>{P.lugar}</p><span className="service-detail">{P.agrupado?"Por visitas · FUPROVI":"Bisemanal · FUPROVI"}</span></button>)}</div>
+    </main>
+  </div>;
 }
-
 /* ══ NUEVO INFORME ══ */
 export function NuevoView({planta,onCreate,onBack,usuario}:any){
   const P=PLANTAS[planta];
