@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { iniciarSesion, observarSesion, cerrarSesion, nubeActiva, observarInformes, sincronizar, borrarRemoto, descargarInforme } from "./nube";
 import { leerBorradores, escribirBorrador, quitarBorrador, type Borrador } from "./borradores";
 import { FichaLocal, useAutoguardadoFicha } from "./FichaLocal";
+import { consultaRecuperable } from "./consultaRecuperable";
 import { SelectorView as Sitios, NuevoView as NuevaOperacion, NuevoGenerador, InformeView as Operacion } from "./Operaciones";
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
@@ -404,7 +405,7 @@ function FinalizarModal({informe,onConfirm,onClose}:any){
 }
 
 /* ══ HOME VIEW ══ */
-function HomeView({informes,loading,onNew,onOpen,usuario,onLogout,onDelete,estadoCarga}:any){
+function HomeView({informes,loading,onNew,onOpen,usuario,onLogout,onDelete,estadoCarga,reintentarConsulta}:any){
   const[delTarget,setDel]=useState<any>(null);const[tabActiva,setTab]=useState("todos");const[busqueda,setBusq]=useState("");
   const[online,setOnline]=useState(navigator.onLine);const[exporting,setExp]=useState<string|null>(null);
   useEffect(()=>{const on=()=>setOnline(true);const off=()=>setOnline(false);window.addEventListener("online",on);window.addEventListener("offline",off);return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};},[]);
@@ -435,7 +436,7 @@ function HomeView({informes,loading,onNew,onOpen,usuario,onLogout,onDelete,estad
         <h2 className="font-bold text-gray-400 text-xs uppercase tracking-widest">{TABS.find(t=>t.id===tabActiva)?.label} ({filtrados.length})</h2>
         <span className={`text-xs font-medium ${online?"text-green-500":"text-amber-400"}`}>{online?"🔄 En línea":"📵 Sin conexión"}</span>
       </div>
-      {estadoCarga && <p role="status" className="mb-4 text-sm text-amber-800">{estadoCarga}</p>}
+      {estadoCarga && <div role="status" className="mb-4 text-sm text-amber-800"><p>{estadoCarga}</p>{reintentarConsulta && <button onClick={reintentarConsulta} className="mt-2 px-3 py-2 rounded-xl bg-amber-100 font-semibold">Reintentar consulta</button>}</div>}
       {loading?(<div className="flex items-center justify-center py-24 gap-3"><div className="w-6 h-6 border-2 border-gray-200 border-t-amber-400 rounded-full animate-spin"/><span className="text-gray-400 text-sm">Cargando informes…</span></div>):!filtrados.length?(<div className="text-center py-20"><div className="w-20 h-20 rounded-2xl mx-auto mb-5 flex items-center justify-center text-4xl" style={{background:Y+"22"}}>{TABS.find(t=>t.id===tabActiva)?.icon}</div><p className="text-gray-400 text-sm">{tabActiva==="todos"?"No hay informes. Toca + Nuevo para comenzar.":`No hay informes de ${TABS.find(t=>t.id===tabActiva)?.label}.`}</p></div>):(
       <div className="space-y-3">{filtrados.map((inf:any)=>{
         const exportacionClasica = !inf.partesElectrizar && inf.tipo !== "operacion" && inf.tipo !== "generador";
@@ -776,6 +777,9 @@ export default function App() {
   const [locales, setLocales] = useState<Borrador[]>([]);
   const [cargando, setCargando] = useState(true);
   const [estadoCarga, setEstadoCarga] = useState("");
+  const [errorLocal, setErrorLocal] = useState("");
+  const [errorConsulta, setErrorConsulta] = useState("");
+  const consulta = useRef<ReturnType<typeof consultaRecuperable<any[]>> | null>(null);
   const [estados, setEstados] = useState<Record<string, EstadoGuardado>>({});
   const cola = useRef(new Map<string, Promise<unknown>>());
   const copias = useRef(new Map<string, Borrador>());
@@ -845,6 +849,7 @@ export default function App() {
     setRemotos([]);
     setEstados({});
     setEstadoCarga("");
+    setErrorLocal("");
     if (!cuenta) return;
     let vigente = true;
     setCargando(true);
@@ -854,11 +859,9 @@ export default function App() {
       setLocales(datos);
       for (const borrador of datos) if (borrador.pendiente) void publicar(borrador.id);
     }).catch(() => {
-      if (vigente) setEstadoCarga("No se pudo abrir el almacenamiento local. Revisa el espacio y los permisos del navegador.");
+      if (vigente) setErrorLocal("No se pudo abrir el almacenamiento local. Revisa el espacio y los permisos del navegador.");
     }).finally(() => { if (vigente) setCargando(false); });
-    const cancelar = nubeActiva ? observarInformes(datos => { if(vigente) setRemotos(datos); }, () => {
-      if (vigente) setEstadoCarga("No se pudieron consultar los informes en línea. Puedes abrir los borradores de este dispositivo.");
-    }) : undefined;
+
     const reconectar = () => {
       for (const borrador of copias.current.values()) if (borrador.pendiente) void publicar(borrador.id);
     };
@@ -866,8 +869,23 @@ export default function App() {
     return () => {
       vigente = false;
       cuentaActual.current = "";
-      cancelar?.();
       window.removeEventListener("online", reconectar);
+    };
+  }, [cuenta]);
+
+  useEffect(() => {
+    setErrorConsulta("");
+    if (!nubeActiva || !cuenta) return;
+    const actual = consultaRecuperable<any[]>(observarInformes, setRemotos, error => {
+      const codigo = error && "code" in error ? String(error.code) : "";
+      setErrorConsulta(error
+        ? "No se pudo actualizar el historial en línea" + (codigo ? " (" + codigo + ")" : "") + ". Los borradores locales siguen disponibles."
+        : "");
+    }, window);
+    consulta.current = actual;
+    return () => {
+      actual.detener();
+      if (consulta.current === actual) consulta.current = null;
     };
   }, [cuenta]);
 
@@ -969,7 +987,7 @@ export default function App() {
     setUsuario(perfil);
   }} />;
   if (vista === "selector") return <TipoSelectorView onSelect={elegir} usuario={usuario} onLogout={salir} />;
-  if (vista === "lista") return <HomeView informes={lista} loading={cargando} estadoCarga={estadoCarga} onNew={() => setVista("selector")} onOpen={abrir} usuario={usuario} onLogout={salir} onDelete={eliminar} />;
+  if (vista === "lista") return <HomeView informes={lista} loading={cargando} estadoCarga={[errorLocal,errorConsulta,estadoCarga].filter(Boolean).join(" ")} reintentarConsulta={errorConsulta ? () => consulta.current?.reintentar() : undefined} onNew={() => setVista("selector")} onOpen={abrir} usuario={usuario} onLogout={salir} onDelete={eliminar} />;
   if (vista === "sitios") return <Sitios usuario={usuario} onVer={() => setVista("selector")} onSelect={(clave: string) => { setSitio(clave); setVista("nueva-operacion"); }} />;
   if (vista === "nueva-operacion") return <NuevaOperacion planta={sitio} onCreate={crear} onBack={() => setVista("sitios")} usuario={usuario} />;
   if (vista === "nuevo" && tipo === "generador") return <NuevoGenerador onCreate={crear} onBack={() => setVista("selector")} usuario={usuario} />;
