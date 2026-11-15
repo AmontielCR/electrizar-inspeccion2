@@ -56,3 +56,27 @@ button:disabled{opacity:.6;cursor:wait}
 @media(max-width:1000px){.service-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.workspace-label{display:none}.login-brand{padding:40px 32px}}
 @media(max-width:640px){.workspace-header-inner{padding:16px 20px;min-height:76px;gap:12px}.account-avatar{display:none}.account-name{max-width:155px;font-size:11px}.workspace-main{padding:30px 20px 20px}.workspace-intro{margin-bottom:30px}.workspace-intro h1{font-size:29px}.service-grid{grid-template-columns:1fr;gap:14px}.service-card{min-height:0;padding:22px}.service-card-top{margin-bottom:16px}.service-card p{margin-bottom:18px}.service-card h3{font-size:17px}.workspace-footer{flex-direction:column;gap:6px}.login-page{grid-template-columns:1fr;background:#f4f6fa}.login-brand{padding:25px;gap:28px}.login-brand h2{font-size:27px;margin-bottom:0;max-width:340px}.login-brand>span,.login-brand p:not(.eyebrow){display:none}.login-brand .eyebrow{margin-bottom:10px}.login-form{max-width:460px;padding:32px 25px}.login-form>div:first-child{display:none}.login-form input{background:white}.login-title h1{font-size:24px}.section-heading>span{font-size:11px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* iOS standalone uses viewport-fit=cover: keep controls inside the safe area.
+   Sticky headers own their inset so it remains present while scrolling. */
+#root header:not(.workspace-header){
+  padding-top:calc(1rem + env(safe-area-inset-top, 0px));
+  padding-left:max(1rem, env(safe-area-inset-left, 0px));
+  padding-right:max(1rem, env(safe-area-inset-right, 0px));
+}
+#root .workspace-header{padding-top:env(safe-area-inset-top, 0px)}
+#root .workspace-header-inner{
+  padding-left:max(20px, env(safe-area-inset-left, 0px));
+  padding-right:max(20px, env(safe-area-inset-right, 0px));
+}
+#root header button{min-height:44px;min-width:44px}
+#root .fixed.inset-0{
+  border-top:env(safe-area-inset-top, 0px) solid transparent;
+  border-right:env(safe-area-inset-right, 0px) solid transparent;
+  border-bottom:env(safe-area-inset-bottom, 0px) solid transparent;
+  border-left:env(safe-area-inset-left, 0px) solid transparent;
+}
+#root{padding-bottom:env(safe-area-inset-bottom, 0px)}
+@media(max-width:640px){
+  .login-brand{padding-top:calc(25px + env(safe-area-inset-top, 0px))}
+}
