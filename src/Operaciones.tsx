@@ -1,3 +1,6 @@
+import { Boton, Tarjeta, Campo, TituloPagina } from "./Interfaz";
+import { abrirVistaPDF } from "./vistaPDF";
+import { Marca, simboloURI, marcaURI } from "./Marca";
 import { Icono } from "./PanelTrabajos";
 import { crearElementos, tareaCompleta } from "./checklists";
 import { useState, useRef } from "react";
@@ -10,8 +13,8 @@ import {
 } from "docx";
 import { LOGO_ICON_B64, LOGO_FULL_B64 } from "./logos";
 
-const LOGO_ICON_URI = `data:image/jpeg;base64,${LOGO_ICON_B64}`;
-const LOGO_FULL_URI = `data:image/png;base64,${LOGO_FULL_B64}`;
+const LOGO_ICON_URI = simboloURI;
+const LOGO_FULL_URI = marcaURI;
 
 const Y    = "#F5A800";
 const DARK = "#111827";
@@ -188,7 +191,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#222;background:
 
 const pdfHdr=(nEl:string)=>`<div class="hdr"><img class="hdr-logo" src="${LOGO_ICON_URI}"/><div class="hdr-cols"><div><b>Contacto:</b> Ing. Alonso Montiel Cubillo<br/><b>Empresa:</b> ${CO.nombre}<br/><b>Teléfono:</b> ${CO.tel}<br/><b>Correo electrónico:</b> ${CO.correo}</div><div><b>Dirección:</b> ${CO.dir}<br/><b>N.º de elementos:</b> ${nEl}</div></div></div>`;
 const pdfFtr=(p:number,t:number)=>`<div class="ftr"><img class="ftr-logo" src="${LOGO_FULL_URI}"/><div class="ftr-pg">página ${p} de ${t}</div></div>`;
-const openPDF=(html:string)=>{const w=window.open("","_blank");if(!w){alert("Permite ventanas emergentes para generar el PDF.");return;}w.document.write(html);w.document.close();w.onload=()=>{w.focus();setTimeout(()=>w.print(),500);};};
+const openPDF = abrirVistaPDF;
 
 const esc=(s:string)=>(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 const nl2br=(s:string)=>esc(s).replace(/\n/g,"<br/>");
@@ -321,17 +324,17 @@ const generateWord=async(inf:any)=>{
 };
 
 /* ══ UI ATOMS ══ */
-const Logo=({sm,white}:{sm?:boolean,white?:boolean})=>(<div className="flex items-center gap-2"><div className={`${sm?"w-7 h-7":"w-10 h-10"} flex items-center justify-center rounded-md flex-shrink-0`} style={{background:Y}}><svg viewBox="0 0 22 22" className={sm?"w-4 h-4":"w-6 h-6"} fill="white"><rect x="2" y="2" width="18" height="3"/><rect x="2" y="8.5" width="11" height="3"/><rect x="2" y="15" width="18" height="3"/><polygon points="14,8.5 18,8.5 15,12.5 19,12.5 12,20 13,13.5 9,13.5"/></svg></div><div><div className={`font-bold leading-tight ${sm?"text-xs":"text-sm"} ${white?"text-white":"text-gray-900"}`}>Electrizar</div><div className={`leading-tight ${sm?"text-[9px]":"text-[10px]"}`} style={{color:Y}}>Informes técnicos</div></div></div>);
-const FI=({label,value,onChange,...rest}:any)=>(<div><label className="block text-xs font-semibold text-gray-400 mb-1 uppercase tracking-wider">{label}</label><input value={value} onChange={onChange} className="w-full border-2 border-gray-100 rounded-xl px-3 py-2.5 text-sm text-gray-800 bg-gray-50 focus:outline-none focus:border-amber-400 focus:bg-white transition-all" {...rest}/></div>);
-const Btn=({children,onClick,sm,disabled,full,color=Y,className=""}:any)=>(<button onClick={onClick} disabled={disabled} className={`font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 ${sm?"px-3 py-2 text-sm":"px-5 py-3"} ${full?"w-full":""} ${disabled?"opacity-50 cursor-not-allowed":"hover:opacity-90"} ${className}`} style={{background:disabled?"#9ca3af":color,color:"white"}}>{children}</button>);
-const Card=({title,children,accent}:any)=>(<div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">{title&&<div className="px-4 pt-4 pb-2 flex items-center gap-2">{accent&&<div className="w-1 h-4 rounded-full" style={{background:Y}}/>}<h3 className="font-bold text-gray-700 text-xs uppercase tracking-widest">{title}</h3></div>}<div className="px-4 pb-4 space-y-3">{children}</div></div>);
-const ListEditor=({label,items,set,placeholder,color=Y}:any)=>(<div><div className="flex items-center justify-between mb-2"><label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</label><button onClick={()=>set([...items,""])} className="text-xs font-bold px-2.5 py-1 rounded-lg hover:opacity-80" style={{color,background:color+"18"}}>+ Agregar</button></div><div className="space-y-2">{!items.length&&<div className="text-xs text-gray-400 text-center py-3 border-2 border-dashed border-gray-100 rounded-xl">Sin {label.toLowerCase()}</div>}{items.map((h:string,i:number)=>(<div key={i} className="flex gap-2 items-start"><textarea value={h} onChange={(e:any)=>{const c=[...items];c[i]=e.target.value;set(c);}} rows={2} placeholder={placeholder} className="flex-1 border-2 border-gray-100 rounded-xl px-3 py-2 text-sm bg-gray-50 resize-none focus:outline-none focus:border-amber-400 focus:bg-white transition-all"/><button onClick={()=>set(items.filter((_:any,j:number)=>j!==i))} className="mt-1.5 w-6 h-6 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 transition-all text-base font-bold">×</button></div>))}</div></div>);
+const Logo = Marca;
+const FI = Campo;
+const Btn = Boton;
+const Card = Tarjeta;
+const ListEditor=({label,items,set,placeholder,color=Y}:any)=>(<div><div className="flex items-center justify-between mb-2"><label className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</label><button onClick={()=>set([...items,""])} className="text-xs font-bold px-2.5 py-1 rounded-lg hover:opacity-80" style={{color,background:color+"18"}}>+ Agregar</button></div><div className="space-y-2">{!items.length&&<div className="text-xs text-gray-400 text-center py-3 border-2 border-dashed border-gray-100 rounded-xl">Sin {label.toLowerCase()}</div>}{items.map((h:string,i:number)=>(<div key={i} className="flex gap-2 items-start"><textarea value={h} onChange={(e:any)=>{const c=[...items];c[i]=e.target.value;set(c);}} rows={2} placeholder={placeholder} className="flex-1 border-2 border-gray-100 rounded-xl px-3 py-2 text-sm bg-gray-50 resize-none focus:outline-none focus:border-amber-400 focus:bg-white transition-all"/><button onClick={()=>set(items.filter((_:any,j:number)=>j!==i))} className="mt-1.5 w-6 h-6 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 transition-all text-base font-bold" aria-label="Quitar campo">×</button></div>))}</div></div>);
 
 /* PhotoPicker: galería o cámara */
 const PhotoBtns=({onPick,label}:{onPick:(mode:string)=>void,label:string})=>(
   <div className="flex gap-2">
-    <button onClick={()=>onPick("gallery")} className="flex-1 py-2.5 border-2 border-gray-100 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 flex items-center justify-center gap-1.5">🖼️ Galería</button>
-    <button onClick={()=>onPick("camera")} className="flex-1 py-2.5 border-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-80" style={{borderColor:Y,color:Y,background:Y+"12"}}>📷 {label}</button>
+    <button onClick={()=>onPick("gallery")} className="flex-1 py-2.5 border-2 border-gray-100 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 flex items-center justify-center gap-1.5"><Icono className="ui-icon" nombre="foto"/> Galería</button>
+    <button onClick={()=>onPick("camera")} className="flex-1 py-2.5 border-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-80" style={{borderColor:Y,color:Y,background:Y+"12"}}><Icono className="ui-icon" nombre="camara"/> {label}</button>
   </div>
 );
 
@@ -381,9 +384,9 @@ export function NuevoView({planta,onCreate,onBack,usuario}:any){
     try { await onCreate(inf); } finally { setCreando(false); }
   };
 
-  return(<div className="min-h-screen" style={{background:"#f8f9fb"}}>
-    <header style={{background:DARK}} className="px-4 py-4 sticky top-0 z-10"><div className="flex items-center gap-3 max-w-lg mx-auto"><button onClick={onBack} className="text-white/60 hover:text-white text-xl">←</button><Logo sm white/><span className="font-bold text-white text-sm ml-1">{P.nombre}</span></div></header>
-    <div className="p-4 max-w-lg mx-auto space-y-3 pb-28">
+  return(<div className="screen-form min-h-screen" style={{background:"#f8f9fb"}}>
+    <header style={{background:DARK}} className="px-4 py-4 sticky top-0 z-10"><div className="flex items-center gap-3 max-w-lg mx-auto"><button aria-label="Volver" onClick={onBack} className="text-white/60 hover:text-white text-xl">←</button><Logo sm white/><span className="font-bold text-white text-sm ml-1">{P.nombre}</span></div></header>
+    <div className="form-content p-4 max-w-lg mx-auto space-y-3 pb-28"><TituloPagina etiqueta="NUEVO INFORME DE SITIO" titulo={P.nombre} descripcion="Define el periodo de trabajo y los datos del informe para comenzar."/>
       <Card title="Identificación del informe" accent>
         <FI label="Código consecutivo *" value={codigo} onChange={(e:any)=>setCod(e.target.value)} placeholder="INF-26-120-FUPROVI"/>
         <FI label="Número de informe del periodo" value={numInforme} onChange={(e:any)=>setNum(e.target.value)} placeholder="1" type="number"/>
@@ -393,7 +396,7 @@ export function NuevoView({planta,onCreate,onBack,usuario}:any){
           <FI label="Fecha inicio *" value={fi} onChange={(e:any)=>setFi(e.target.value)} type="date"/>
           <FI label="Fecha fin *" value={ff} onChange={(e:any)=>setFf(e.target.value)} type="date"/>
         </div>
-        <div className="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">📅 Periodo: <b>{periodo}</b></div>
+        <div className="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2"><Icono className="ui-icon" nombre="calendario"/> Periodo: <b>{periodo}</b></div>
       </Card>
       {P.agrupado&&(
         <Card title="Visitas del periodo" accent>
@@ -456,14 +459,14 @@ export function NuevoGenerador({ onCreate, onBack, usuario }: any) {
       setGuardando(false);
     }
   };
-  return <div className="min-h-screen bg-gray-50">
+  return <div className="screen-form min-h-screen bg-gray-50">
     <header className="bg-gray-900 text-white px-4 py-4">
       <div className="max-w-2xl mx-auto flex gap-3 items-center">
         <button onClick={onBack} aria-label="Volver a tipos de informe" className="text-xl">←</button>
         <h1 className="font-bold">Nuevo mantenimiento de generador</h1>
       </div>
     </header>
-    <form onSubmit={crear} className="max-w-2xl mx-auto p-4 space-y-4">
+    <form onSubmit={crear} className="form-content max-w-2xl mx-auto p-4 space-y-4"><TituloPagina etiqueta="NUEVO MANTENIMIENTO" titulo="Generadores" descripcion="Selecciona el plan e identifica el equipo antes de registrar las tareas."/>
       <Card title="Alcance del mantenimiento" accent>
         <label className="block text-xs font-semibold text-gray-700">
           Plan de mantenimiento
@@ -538,9 +541,9 @@ function ElementoModal({el,index,plantaColor,onSave,onClose,registro,esGenerador
 
   const isHall=el.kind==="hallazgo";
   const kindLabel=isHall?"Hallazgos":el.kind==="extra"?"Hoja extraordinaria":"Tarea";
-  return(<div className="fixed inset-0 bg-black/70 z-40 flex flex-col justify-end sm:justify-center sm:items-center sm:p-4">
+  return(<div className="app-dialog fixed inset-0 bg-black/70 z-40 flex flex-col justify-end sm:justify-center sm:items-center sm:p-4">
     <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col" style={{maxHeight:"93vh"}}>
-      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0"><button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 font-bold text-lg">✕</button><span className="font-bold text-gray-800">{kindLabel} <span className="font-mono text-gray-400">({index+1})</span></span><Btn onClick={save} sm color={plantaColor}>Guardar ✓</Btn></div>
+      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0"><button aria-label="Cerrar" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 font-bold text-lg"><Icono className="ui-icon" nombre="cerrar"/></button><span className="font-bold text-gray-800">{kindLabel} <span className="font-mono text-gray-400">({index+1})</span></span><Btn onClick={save} sm color={plantaColor}>Guardar <Icono className="ui-icon" nombre="listo"/></Btn></div>
       <div className="overflow-y-auto p-4 space-y-4 pb-6">
         {estadoGuardado && <p role="status" className="text-xs text-gray-600">{estadoGuardado}</p>}
         {el.grupo&&<div className="text-[11px] font-bold px-2.5 py-1 rounded-lg inline-block" style={{background:plantaColor+"18",color:plantaColor}}>{el.grupo}</div>}
@@ -569,7 +572,7 @@ function ElementoModal({el,index,plantaColor,onSave,onClose,registro,esGenerador
           <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Fotografías (máx. 2)</label>
           {fotos.length>0&&(
             <div className="grid grid-cols-2 gap-2 mb-2">
-              {fotos.map((f:any,i:number)=>(<div key={i} className="relative"><img src={f.url} className="w-full h-32 object-cover rounded-xl border-2 border-gray-100"/><button onClick={()=>delFoto(i)} className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs font-bold">×</button>{!esGenerador&&fotos.length===2&&<span className="absolute bottom-1 left-1 text-[10px] font-bold px-2 py-0.5 rounded bg-black/60 text-white">{i===0?"ANTES":"DESPUÉS"}</span>}</div>))}
+              {fotos.map((f:any,i:number)=>(<div key={i} className="relative"><img src={f.url} className="w-full h-32 object-cover rounded-xl border-2 border-gray-100"/><button onClick={()=>delFoto(i)} className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs font-bold" aria-label="Quitar campo">×</button>{!esGenerador&&fotos.length===2&&<span className="absolute bottom-1 left-1 text-[10px] font-bold px-2 py-0.5 rounded bg-black/60 text-white">{i===0?"ANTES":"DESPUÉS"}</span>}</div>))}
             </div>
           )}
           {fotos.length<2&&<PhotoBtns onPick={pick} label={fotos.length===0?"Cámara":"Añadir 2ª foto"}/>}
@@ -583,7 +586,7 @@ function ElementoModal({el,index,plantaColor,onSave,onClose,registro,esGenerador
           <input ref={fRef} type="file" accept="image/*" className="hidden" onChange={onFile}/>
         </div>
 
-        {err&&<div className="bg-red-50 border-2 border-red-100 rounded-2xl p-3 text-xs text-red-600 font-medium">⚠️ {err}</div>}
+        {err&&<div className="bg-red-50 border-2 border-red-100 rounded-2xl p-3 text-xs text-red-600 font-medium"><Icono className="ui-icon" nombre="alerta"/> {err}</div>}
 
         {isHall?(
           <>
@@ -605,9 +608,9 @@ function ElementoModal({el,index,plantaColor,onSave,onClose,registro,esGenerador
 /* ══ MODAL RESUMEN GENERAL ══ */
 function ResumenModal({resumen,esChecklist,plantaColor,onSave,onClose}:any){
   const[items,setItems]=useState<string[]>(resumen||[]);
-  return(<div className="fixed inset-0 bg-black/70 z-40 flex flex-col justify-end sm:justify-center sm:items-center sm:p-4">
+  return(<div className="app-dialog fixed inset-0 bg-black/70 z-40 flex flex-col justify-end sm:justify-center sm:items-center sm:p-4">
     <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col" style={{maxHeight:"93vh"}}>
-      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0"><button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 font-bold text-lg">✕</button><span className="font-bold text-gray-800">Resumen General</span><Btn onClick={()=>onSave(items)} sm color={plantaColor}>Guardar ✓</Btn></div>
+      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0"><button aria-label="Cerrar" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 font-bold text-lg"><Icono className="ui-icon" nombre="cerrar"/></button><span className="font-bold text-gray-800">Resumen General</span><Btn onClick={()=>onSave(items)} sm color={plantaColor}>Guardar <Icono className="ui-icon" nombre="listo"/></Btn></div>
       <div className="overflow-y-auto p-4 pb-6">
         {esChecklist && <p className="text-sm text-gray-600 mb-3">El informe incluye automáticamente las tareas realizadas. Aquí puedes agregar notas de cierre.</p>}
         <ListEditor label={esChecklist ? "Notas de cierre" : "Acciones realizadas"} items={items} set={setItems} placeholder={esChecklist ? "Agrega una nota…" : "Acción realizada durante el período…"} color={plantaColor}/>
@@ -669,15 +672,15 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
   // agrupar índices por grupo para render
   const renderGrupos=grupos.map((g:string)=>({grupo:g,items:els.map((e:any,i:number)=>({e,i})).filter((x:any)=>x.e.grupo===g)}));
 
-  return(<div className="min-h-screen" style={{background:"#f8f9fb"}}>
+  return(<div className="screen-report min-h-screen" style={{background:"#f8f9fb"}}>
     <header style={{background:DARK}} className="px-4 py-4 sticky top-0 z-10 shadow-lg"><div className="max-w-2xl mx-auto">
-      <div className="flex items-center gap-2 mb-2"><button onClick={onBack} className="text-white/60 hover:text-white text-xl">←</button><Logo sm white/><span className="ml-auto text-[10px] font-bold px-2 py-1 rounded-lg" style={{background:P.color+"30",color:P.color}}>{P.icon} {P.nombre.toUpperCase()}</span></div>
+      <div className="flex items-center gap-2 mb-2"><button aria-label="Volver" onClick={onBack} className="text-white/60 hover:text-white text-xl">←</button><Logo sm white/><span className="ml-auto text-[10px] font-bold px-2 py-1 rounded-lg" style={{background:P.color+"30",color:P.color}}><Icono className="ui-icon" nombre="agua"/> {P.nombre.toUpperCase()}</span></div>
       <div className="ml-1"><div className="font-mono text-[11px] text-white/40">{informe.codigo}</div><div className="font-bold text-white text-sm">{esGenerador ? informe.tituloCorto : `Informe #${informe.numInforme} · ${mesAnioTexto(informe.fechaFin)}`}</div></div>
     </div></header>
 
-    <div className="bg-white border-b border-gray-100 px-4 py-2"><div className="max-w-2xl mx-auto flex gap-5 text-xs flex-wrap"><span className="text-gray-500">📷 <b className="text-gray-700">{conFoto}/{els.length}</b> con foto</span><span className="text-gray-500">📅 {esGenerador ? informe.fecha : informe.periodo}</span>{esGenerador && <span className="font-semibold text-teal-900">{planesGenerador[informe.plan as PlanGenerador]}</span>}{!!requeridas.length && <span className="font-semibold text-gray-700">{requeridas.length-pendientes}/{requeridas.length} tareas registradas</span>}</div></div>
+    <div className="bg-white border-b border-gray-100 px-4 py-2"><div className="max-w-2xl mx-auto flex gap-5 text-xs flex-wrap"><span className="text-gray-500"><Icono className="ui-icon" nombre="camara"/> <b className="text-gray-700">{conFoto}/{els.length}</b> con foto</span><span className="text-gray-500"><Icono className="ui-icon" nombre="calendario"/> {esGenerador ? informe.fecha : informe.periodo}</span>{esGenerador && <span className="font-semibold text-teal-900">{planesGenerador[informe.plan as PlanGenerador]}</span>}{!!requeridas.length && <span className="font-semibold text-gray-700">{requeridas.length-pendientes}/{requeridas.length} tareas registradas</span>}</div></div>
 
-    <div className="p-4 max-w-2xl mx-auto pb-40 space-y-5">
+    <div className="report-content p-4 max-w-2xl mx-auto pb-40 space-y-5">
       {guardado}
       {renderGrupos.map(({grupo,items}:any)=>(
         <div key={grupo||"gen"} className="space-y-3">
@@ -687,7 +690,7 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
               <div className="flex gap-3 p-3">
                 {(e.fotos||[]).length>0
                   ?<div className="flex gap-1 shrink-0">{e.fotos.slice(0,2).map((f:any,k:number)=>(<img key={k} src={f.url} className="w-16 h-16 object-cover rounded-lg"/>))}</div>
-                  :<div className="w-16 h-16 bg-gray-100 rounded-lg shrink-0 flex items-center justify-center text-2xl">📷</div>}
+                  :<div className="w-16 h-16 bg-gray-100 rounded-lg shrink-0 flex items-center justify-center text-2xl"><Icono className="ui-icon" nombre="camara"/></div>}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1"><span className="font-mono text-[10px] text-gray-300">({i+1})</span>{e.kind==="hallazgo"&&<span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-50 text-red-600">HALLAZGOS</span>}{e.kind==="extra"&&<span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">EXTRAORDINARIO</span>}</div>
                   <div className="font-bold text-sm text-gray-800 leading-snug">{e.titulo}</div>
@@ -695,8 +698,8 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
                 </div>
               </div>
               <div className="flex border-t border-gray-50 divide-x divide-gray-50 text-xs">
-                <button onClick={()=>setEditIdx(i)} className="flex-1 py-2.5 text-gray-500 hover:bg-gray-50 font-semibold">✏️ Editar / Fotos</button>
-                {e.kind==="extra"&&<button onClick={()=>delEl(i)} className="flex-1 py-2.5 text-red-400 hover:bg-red-50 font-semibold">🗑️ Eliminar</button>}
+                <button onClick={()=>setEditIdx(i)} className="flex-1 py-2.5 text-gray-500 hover:bg-gray-50 font-semibold"><Icono className="ui-icon" nombre="editar"/> Editar / Fotos</button>
+                {e.kind==="extra"&&<button onClick={()=>delEl(i)} className="flex-1 py-2.5 text-red-400 hover:bg-red-50 font-semibold"><Icono className="ui-icon" nombre="eliminar"/> Eliminar</button>}
               </div>
             </div>
           ))}
@@ -708,7 +711,7 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
 
       {/* Resumen */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-4"><div className="flex items-center justify-between"><div><p className="font-bold text-gray-800 text-sm">📋 Resumen General</p><p className="text-xs text-gray-400 mt-0.5">{(informe.resumen||[]).filter((x:string)=>x.trim()).length} {informe.checklistVersion ? "notas de resumen" : "acciones realizadas"}</p></div><Btn onClick={()=>setResM(true)} sm color={P.color}>Editar</Btn></div></div>
+        <div className="p-4"><div className="flex items-center justify-between"><div><p className="font-bold text-gray-800 text-sm"><Icono className="ui-icon" nombre="copiar"/> Resumen General</p><p className="text-xs text-gray-400 mt-0.5">{(informe.resumen||[]).filter((x:string)=>x.trim()).length} {informe.checklistVersion ? "notas de resumen" : "acciones realizadas"}</p></div><Btn onClick={()=>setResM(true)} sm color={P.color}>Editar</Btn></div></div>
       </div>
 
       {/* Generar */}
@@ -717,8 +720,8 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
         <p className="text-xs text-gray-400 mb-4">Documento apaisado con portada, hojas de tareas, hallazgos y resumen.</p>
         {!!pendientes && <p role="status" className="text-sm text-amber-700 mb-3">Completa las {pendientes} tareas pendientes para generar el informe.</p>}
         <div className="flex gap-2">
-          <button onClick={()=>doGen("pdf")} disabled={!!gen || pendientes > 0} className="flex-1 py-3 rounded-xl font-extrabold text-white text-sm disabled:opacity-60" style={{background:DARK}}>{gen==="pdf"?"⏳…":"🖨️ PDF"}</button>
-          <button onClick={()=>doGen("word")} disabled={!!gen || pendientes > 0} className="flex-1 py-3 rounded-xl font-extrabold text-sm border-2 disabled:opacity-60" style={{borderColor:P.color,color:P.color}}>{gen==="word"?"⏳…":"📝 Word"}</button>
+          <button onClick={()=>doGen("pdf")} disabled={!!gen || pendientes > 0} className="flex-1 py-3 rounded-xl font-extrabold text-white text-sm disabled:opacity-60" style={{background:DARK}}>{gen==="pdf"?"…":"PDF"}</button>
+          <button onClick={()=>doGen("word")} disabled={!!gen || pendientes > 0} className="flex-1 py-3 rounded-xl font-extrabold text-sm border-2 disabled:opacity-60" style={{borderColor:P.color,color:P.color}}>{gen==="word"?"…":"Word"}</button>
         </div>
       </div>
     </div>

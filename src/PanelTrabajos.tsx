@@ -15,6 +15,23 @@ export function Icono({ nombre, className = "" }: { nombre: string; className?: 
     generador: <><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3M7 20v2m10-2v2M6 11h5m-5 4h5m6-4-2 3h3l-2 3"/></>,
     informes: <><path d="M14 2H5v20h14V7l-5-5Z"/><path d="M14 2v5h5M8 12h8m-8 4h8"/></>,
     flecha: <path d="M5 12h14m-6-6 6 6-6 6"/>,
+    camara: <><path d="M8 5 9 3h6l1 2h4v15H4V5Z"/><circle cx="12" cy="12" r="4"/></>,
+    foto: <><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/></>,
+    editar: <><path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14v6Z"/></>,
+    eliminar: <><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></>,
+    guardar: <><path d="M4 3h13l4 4v14H3V3h1Zm3 0v6h10V3M7 21v-8h10v8"/></>,
+    listo: <path d="m5 12 4 4L19 6"/>,
+    cerrar: <path d="m6 6 12 12M6 18 18 6"/>,
+    calendario: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-14 4h3m4 0h3"/></>,
+    buscar: <><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></>,
+    copiar: <><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></>,
+    imprimir: <><path d="M7 7V2h10v5M7 17H3V7h18v10h-4M7 14h10v8H7zM17 10h1"/></>,
+    compartir: <><path d="M12 16V2m-5 5 5-5 5 5M7 11H3v11h18V11h-4"/></>,
+    conectar: <><path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0m-11 4a6 6 0 0 1 8 0"/><circle cx="12" cy="20" r="1"/></>,
+    alerta: <><path d="m12 2 10 19H2L12 2ZM12 8v5m0 4v.2"/></>,
+    reloj: <><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></>,
+    firma: <><path d="M3 21h18M4 16l4-1L20 3l-3-2L5 13l-1 3Zm8-8 3 3"/></>,
+    archivo: <><path d="M14 2H5v20h14V7l-5-5Zm0 0v5h5M10 10h2m-2 3h2m-2 3h2m-2 3h2"/></>,
   };
   return <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{trazos[nombre] || trazos.informes}</svg>;
 }
