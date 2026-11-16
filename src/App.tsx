@@ -157,7 +157,7 @@ const generateResumenEjecutivo=(informe:any)=>{
 /* ══ PDF AC ══ */
 const generatePDFAC=(informe:any)=>{
   informe = textoHTML(informe);
-  const equipos=informe.equipos||[],nEq=equipos.length,totalPags=nEq+2,hdr=pdfHdr(nEq,"equipos");
+  const equipos=informe.equipos||[],nEq=equipos.length,totalPags=nEq+3,hdr=pdfHdr(nEq,"equipos");
   const css=PDF_CSS_BASE+`.res-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:8.5pt;}.res-table th{background:#F5A800;color:white;font-weight:700;padding:7px 10px;text-align:left;}.res-table td{padding:6px 10px;border-bottom:1px solid #f3f4f6;vertical-align:middle;}.res-table tr:nth-child(even) td{background:#fafafa;}.sum-row{display:flex;gap:14px;margin-top:14px;}.sum-box{flex:1;border:2px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center;}.sum-num{font-size:20pt;font-weight:900;}.sum-lbl{font-size:7.5pt;color:#666;margin-top:2px;}.eq-title-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}.eq-title{font-size:12pt;font-weight:900;color:#111;}.foto-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px;}.foto-cell{display:flex;flex-direction:column;gap:3px;}.foto-lbl{font-size:7pt;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.03em;}.foto-img{width:100%;height:150px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;}.foto-empty{width:100%;height:150px;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18pt;color:#d1d5db;}`;
   const portada=`<div class="pg cover"><img class="cover-logo" src="${LOGO_ICON_URI}" alt="Electrizar"/><div class="cover-title">Informe de Mantenimiento de Aires Acondicionados</div><div class="cover-sub">Informe del mantenimiento preventivo para los equipos de aire acondicionado en ${informe.propietario}.</div><div class="cover-table"><div class="cover-row"><div class="cover-lbl">Cliente:</div><div class="cover-val">${informe.propietario}</div></div><div class="cover-row"><div class="cover-lbl">Dirección:</div><div class="cover-val">${informe.direccion||"—"}</div></div><div class="cover-row"><div class="cover-lbl">Código:</div><div class="cover-val">${informe.codigo}</div></div><div class="cover-row"><div class="cover-lbl">Fecha:</div><div class="cover-val">${fmtFecha(informe.fecha)}</div></div><div class="cover-row"><div class="cover-lbl">Versión:</div><div class="cover-val">0.1V</div></div>${informe.tecnico?`<div class="cover-row"><div class="cover-lbl">Técnico responsable:</div><div class="cover-val">${informe.tecnico}</div></div>`:""}</div>${pdfFtr(1,totalPags)}</div>`;
   const ap=equipos.filter((e:any)=>e.resultado==="Aprobado").length,noAp=equipos.filter((e:any)=>e.resultado==="No Aprobado").length;
@@ -168,7 +168,9 @@ const generatePDFAC=(informe:any)=>{
     const acHTML=(eq.acciones||[]).map((a:string)=>`<div class="item-line">- ${a}</div>`).join("")||`<div class="item-line" style="color:#aaa">Sin acciones.</div>`;
     return`<div class="pg">${hdr}<div class="eq-title-row"><div class="eq-title">(${i+1}) ${eq.nombre}</div><span class="${eq.resultado==="Aprobado"?"badge-ap":"badge-no"}">${eq.resultado||"Pendiente"}</span>${eq.ubicacion?`<span style="font-size:8pt;color:#888">📍 ${eq.ubicacion}</span>`:""}</div><div class="foto-grid">${foto("evaporadora","Limpieza de evaporadora","❄️")}${foto("condensadora","Limpieza de condensadora","💧")}${foto("tuberia","Estado de tubería y aislante","🔧")}${foto("presiones","Nivel de presión de refrigerante","🔵")}</div>${eq.resultado==="No Aprobado"?`<div class="sec-lbl">Acciones realizadas / requeridas:</div>${acHTML}`:""}${eq.observaciones?`<div class="sec-lbl">Observaciones:</div><div class="item-line">${eq.observaciones}</div>`:""} ${pdfFtr(i+3,totalPags)}</div>`;
   }).join("");
-  openPDF(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/><title>${informe.codigo}</title><style>${css}</style></head><body>${portada}${resumen}${eqPags}</body></html>`);
+  const recepcion=informe.recepcionCliente;
+  const recepcionPagina=`<div class="pg">${hdr}<h2 style="font-size:18pt;margin:18px 0 12px">Recepción por parte del cliente</h2><p style="font-size:10pt;color:#555;margin-bottom:24px">Responsable que recibe el informe de mantenimiento de aires acondicionados.</p><div style="font-size:11pt;line-height:2"><b>Nombre del responsable del cliente:</b> ${recepcion?.nombre||"Pendiente de registrar"}<br/><b>Fecha de la firma:</b> ${recepcion?.fecha?fmtFecha(recepcion.fecha):"Pendiente de registrar"}</div><div style="margin-top:28px;width:300px;height:145px;border:1px solid #d1d5db;border-radius:8px;display:flex;align-items:center;justify-content:center">${recepcion?.firmaUrl?`<img src="${recepcion.firmaUrl}" alt="Firma del responsable del cliente" style="max-width:280px;max-height:125px;object-fit:contain"/>`:'<span style="font-size:9pt;color:#666">Firma pendiente de registrar</span>'}</div><p style="margin-top:10px;font-size:9pt;color:#555">Firma del responsable del cliente</p>${pdfFtr(totalPags,totalPags)}</div>`;
+  openPDF(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/><title>${informe.codigo}</title><style>${css}</style></head><body>${portada}${resumen}${eqPags}${recepcionPagina}</body></html>`);
 };
 
 /* ══ WORD helpers ══ */
@@ -228,13 +230,22 @@ const generateWordAC=async(informe:any)=>{
     const rC=eq.resultado==="Aprobado"?"16A34A":"DC2626";
     eqPages.push(wp([wt(`(${idx+1}) ${eq.nombre}`,{bold:true,size:26}),wt(`  [${eq.resultado||"Pendiente"}]`,{bold:true,size:22,color:rC}),...(eq.ubicacion?[wt(`  📍 ${eq.ubicacion}`,{size:18,color:"888888"})]:[])],{spacing:{before:0,after:180}}));
     const colW=Math.floor(CW/4);
-    const photoCols=AC_KEYS.map(f=>{const src=eq.fotos?.[f.key];return wCell([wp([wt(`$<Icono className="ui-icon" nombre="aire"/> ${f.label}`,{bold:true,size:16,color:"555555"})],{spacing:{before:0,after:80}}),src?wp([wImg(b64s(src),itype(src),192,155,f.label)]):wp([wt("Sin foto",{size:16,color:"CCCCCC"})])],colW);});
+    const photoCols=AC_KEYS.map(f=>{const src=eq.fotos?.[f.key];return wCell([wp([wt(`${f.icon} ${f.label}`,{bold:true,size:16,color:"555555"})],{spacing:{before:0,after:80}}),src?wp([wImg(b64s(src),itype(src),192,155,f.label)]):wp([wt("Sin foto",{size:16,color:"CCCCCC"})])],colW);});
     eqPages.push(wTbl([new TableRow({children:photoCols})],[colW,colW,colW,CW-colW*3]));
     if(eq.resultado==="No Aprobado"&&eq.acciones?.length){eqPages.push(wsp(8));eqPages.push(wp([wt("Acciones realizadas / requeridas:",{bold:true,size:20,color:"374151"})],{spacing:{before:0,after:80}}));for(const a of eq.acciones)eqPages.push(wp([wt(`• ${a}`,{size:18,color:"444444"})],{spacing:{before:40,after:0}}));}
     if(eq.observaciones){eqPages.push(wsp(8));eqPages.push(wp([wt("Observaciones:",{bold:true,size:20,color:"374151"})],{spacing:{before:0,after:80}}));eqPages.push(wp([wt(eq.observaciones,{size:18,color:"444444"})],{spacing:{before:0,after:0}}));}
     if(idx<equipos.length-1)eqPages.push(wpb());
   }
-  const docx=new Document({styles:{default:{document:{run:{font:"Arial",size:20}}}},sections:[{properties:{...PP,titlePage:true} as any,headers:{first:new Header({children:[]})},footers:{first:new Footer({children:[]})},children:cover},{properties:PP as any,headers:{default:wHdr(nEq,"equipos")},footers:{default:wFtr()},children:[...resumen,...eqPages]}]});
+  const recepcion=informe.recepcionCliente;
+  const recepcionPagina=[...(eqPages.length?[wpb()]:[]),
+    wp([wt("Recepción por parte del cliente",{bold:true,size:32})],{spacing:{after:200}}),
+    wp([wt("Responsable que recibe el informe de mantenimiento de aires acondicionados.",{size:20,color:"555555"})],{spacing:{after:220}}),
+    wp([wt("Nombre del responsable del cliente: ",{bold:true,size:22}),wt(recepcion?.nombre||"Pendiente de registrar",{size:22})],{spacing:{after:140}}),
+    wp([wt("Fecha de la firma: ",{bold:true,size:22}),wt(recepcion?.fecha?fmtFecha(recepcion.fecha):"Pendiente de registrar",{size:22})],{spacing:{after:240}}),
+    recepcion?.firmaUrl?wp([wImg(b64s(recepcion.firmaUrl),itype(recepcion.firmaUrl),260,123,"Firma del responsable del cliente")]):wp([wt("Firma pendiente de registrar",{size:20,color:"777777"})],{spacing:{after:600}}),
+    wp([wt("Firma del responsable del cliente",{size:20,color:"555555"})],{spacing:{before:100}}),
+  ];
+  const docx=new Document({styles:{default:{document:{run:{font:"Arial",size:20}}}},sections:[{properties:{...PP,titlePage:true} as any,headers:{first:new Header({children:[]})},footers:{first:new Footer({children:[]})},children:cover},{properties:PP as any,headers:{default:wHdr(nEq,"equipos")},footers:{default:wFtr()},children:[...resumen,...eqPages,...recepcionPagina]}]});
   await wDownload(docx,informe.codigo);
 };
 
@@ -286,7 +297,7 @@ function PlantillasInline({tipo,onSelect,onClose,current}:any){
 }
 
 /* ══ FIRMA CANVAS ══ */
-function FirmaCanvas({onConfirm,onClose}:any){
+function FirmaCanvas({onConfirm,onClose,titulo="Firma del responsable"}:any){
   const canvasRef=useRef<HTMLCanvasElement>(null);const[drawing,setDraw]=useState(false);const[hasFirma,setHas]=useState(false);
   const getPos=(e:any)=>{const c=canvasRef.current!;const r=c.getBoundingClientRect();const sx=c.width/r.width,sy=c.height/r.height;let cx,cy;if(e.touches?.length){cx=e.touches[0].clientX;cy=e.touches[0].clientY;}else{cx=e.clientX;cy=e.clientY;}return{x:(cx-r.left)*sx,y:(cy-r.top)*sy};};
   const start=(e:any)=>{if(e.cancelable)e.preventDefault();const c=canvasRef.current!;const ctx=c.getContext("2d")!;const pos=getPos(e);ctx.beginPath();ctx.moveTo(pos.x,pos.y);setDraw(true);setHas(true);};
@@ -294,7 +305,7 @@ function FirmaCanvas({onConfirm,onClose}:any){
   const end=()=>setDraw(false);
   const clear=()=>{const c=canvasRef.current!;c.getContext("2d")!.clearRect(0,0,c.width,c.height);setHas(false);};
   const confirm=()=>{if(!hasFirma){alert("Dibuja tu firma primero.");return;}const c=canvasRef.current!;onConfirm(c.toDataURL("image/png"));};
-  return(<div className="app-dialog fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-white rounded-3xl overflow-hidden w-full max-w-sm shadow-2xl"><div className="flex items-center justify-between px-4 py-3 border-b border-gray-100"><span className="font-bold text-gray-800 text-sm"><Icono className="ui-icon" nombre="firma"/> Firma del Responsable</span><button aria-label="Cerrar" onClick={onClose} className="text-gray-300 hover:text-gray-600 font-bold text-lg"><Icono className="ui-icon" nombre="cerrar"/></button></div><div className="p-4"><div className="border-2 border-gray-200 rounded-2xl overflow-hidden bg-gray-50"><canvas ref={canvasRef} width={380} height={180} className="w-full touch-none cursor-crosshair" style={{display:"block"}} onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end} onTouchStart={start} onTouchMove={move} onTouchEnd={end}/></div><div className="flex items-center justify-center mt-2 mb-4"><div className="h-px bg-gray-300 flex-1"/><span className="text-[10px] text-gray-400 mx-3">Firma aquí</span><div className="h-px bg-gray-300 flex-1"/></div><div className="flex gap-3"><button onClick={clear} className="flex-1 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-50">Limpiar</button><button onClick={confirm} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white hover:opacity-90" style={{background:DARK}}>Confirmar <Icono className="ui-icon" nombre="listo"/></button></div></div></div></div>);
+  return(<div className="app-dialog fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-white rounded-3xl overflow-hidden w-full max-w-sm shadow-2xl"><div className="flex items-center justify-between px-4 py-3 border-b border-gray-100"><span className="font-bold text-gray-800 text-sm"><Icono className="ui-icon" nombre="firma"/> {titulo}</span><button aria-label="Cerrar" onClick={onClose} className="text-gray-300 hover:text-gray-600 font-bold text-lg"><Icono className="ui-icon" nombre="cerrar"/></button></div><div className="p-4"><div className="border-2 border-gray-200 rounded-2xl overflow-hidden bg-gray-50"><canvas ref={canvasRef} width={380} height={180} className="w-full touch-none cursor-crosshair" style={{display:"block"}} onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end} onTouchStart={start} onTouchMove={move} onTouchEnd={end}/></div><div className="flex items-center justify-center mt-2 mb-4"><div className="h-px bg-gray-300 flex-1"/><span className="text-[10px] text-gray-400 mx-3">Firma aquí</span><div className="h-px bg-gray-300 flex-1"/></div><div className="flex gap-3"><button onClick={clear} className="flex-1 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-50">Limpiar</button><button onClick={confirm} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white hover:opacity-90" style={{background:DARK}}>Confirmar <Icono className="ui-icon" nombre="listo"/></button></div></div></div></div>);
 }
 
 /* ══ DELETE MODAL ══ */
@@ -628,7 +639,58 @@ function EquipoACModal({equipo,num,onSave,onClose,registro}:any){
 }
 
 /* ══ MANTENIMIENTO AC VIEW ══ */
+function RecepcionClienteModal({recepcion,registro,onSave,onClose}:any){
+  const [nombre,setNombre]=useState(recepcion?.nombre||"");
+  const [fecha,setFecha]=useState(recepcion?.fecha||new Date().toLocaleDateString("sv-SE"));
+  const [firmaUrl,setFirma]=useState<string|null>(recepcion?.firmaUrl||null);
+  const [firmando,setFirmando]=useState(false);
+  const [guardando,setGuardando]=useState(false);
+  const [error,setError]=useState("");
+  const ficha={nombre,fecha,firmaUrl};
+  const {estado,esperarGuardado}=useAutoguardadoFicha(registro,ficha);
+  const guardar=async()=>{
+    if(guardando)return;
+    if(!nombre.trim()||!fecha||!firmaUrl){setError("Completa el nombre, la fecha y la firma del responsable del cliente.");return;}
+    setGuardando(true);setError("");
+    try{
+      await esperarGuardado();
+      const ok=await onSave({...ficha,nombre:nombre.trim()});
+      if(!ok)setError("No se pudo guardar la recepción. Mantén esta ventana abierta y vuelve a intentar.");
+    }catch{setError("No se pudo guardar la recepción. Vuelve a intentar.");}
+    finally{setGuardando(false);}
+  };
+  return <div className="app-dialog fixed inset-0 bg-black/70 z-40 flex flex-col justify-end sm:justify-center sm:items-center sm:p-4">
+    <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col" style={{maxHeight:"93vh"}}>
+      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0">
+        <button aria-label="Cerrar recepción del cliente" onClick={onClose} disabled={guardando}><Icono nombre="cerrar"/></button>
+        <span className="font-bold text-gray-800">Recepción del cliente</span>
+        <Btn onClick={guardar} sm disabled={guardando}>{guardando?"Guardando…":"Guardar"}</Btn>
+      </div>
+      <div className="overflow-y-auto p-4 space-y-4 pb-6">
+        <p className="text-sm text-gray-600">Registra a la persona que recibe el informe por parte del cliente.</p>
+        <FI label="Nombre del responsable del cliente *" value={nombre} onChange={(e:any)=>setNombre(e.target.value)} autoComplete="name" disabled={guardando}/>
+        <FI label="Fecha de la firma *" value={fecha} type="date" onChange={(e:any)=>setFecha(e.target.value)} disabled={guardando}/>
+        <div className="space-y-3"><p className="text-sm font-semibold">Firma del responsable del cliente *</p>
+          {firmaUrl&&<img src={firmaUrl} alt="Firma del responsable del cliente" className="w-full max-h-32 object-contain border border-gray-200 rounded-xl bg-white"/>}
+          <button onClick={()=>setFirmando(true)} disabled={guardando} className="w-full py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm font-semibold"><Icono className="ui-icon" nombre="firma"/> {firmaUrl?"Volver a firmar":"Firmar en pantalla"}</button>
+        </div>
+        {estado&&<p role="status" className="text-xs text-gray-600">{estado}</p>}
+        {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
+      </div>
+    </div>
+    {firmando&&<FirmaCanvas titulo="Firma del cliente" onClose={()=>setFirmando(false)} onConfirm={(url:string)=>{setFirma(url);setFirmando(false);}}/>}
+  </div>;
+}
+
 function MantenimientoACView({informe,onUpdate,onBack,onFinalize,guardado,cuenta}:any){
+  const [recepcionAbierta,setRecepcionAbierta]=useState(false);
+  const claveRecepcion=informe.id+"/aire/recepcion-cliente";
+  const recepcion=informe.recepcionCliente;
+  const guardarRecepcion=async(datos:any)=>{
+    const ok=await onUpdate({...informe,recepcionCliente:datos},claveRecepcion);
+    if(ok)setRecepcionAbierta(false);
+    return ok;
+  };
   const[modal,setModal]=useState(false);const[editIdx,setEditIdx]=useState<number|null>(null);
   const equipos=informe.equipos||[];const aprobados=equipos.filter((e:any)=>e.resultado==="Aprobado").length;const noAprobados=equipos.filter((e:any)=>e.resultado==="No Aprobado").length;
   const claveFicha = informe.id + "/aire/" + (editIdx ?? "nuevo");
@@ -651,11 +713,19 @@ function MantenimientoACView({informe,onUpdate,onBack,onFinalize,guardado,cuenta
           <div className="flex border-t border-gray-50 divide-x divide-gray-50 text-xs"><button onClick={()=>{setEditIdx(i);setModal(true);}} className="flex-1 py-2.5 text-gray-500 hover:bg-gray-50 font-semibold transition-colors"><Icono className="ui-icon" nombre="editar"/> Editar</button><button onClick={()=>delEquipo(i)} className="flex-1 py-2.5 text-red-400 hover:bg-red-50 font-semibold transition-colors"><Icono className="ui-icon" nombre="eliminar"/> Eliminar</button></div>
         </div>))
       )}
+      <Card title="Recepción por parte del cliente" accent>
+        <p className="text-sm text-gray-600">Nombre, fecha y firma de la persona que recibe el informe.</p>
+        {recepcion ? <div className="space-y-3"><p className="text-sm"><b>{recepcion.nombre}</b></p><p className="text-xs text-gray-600">Fecha de firma: {fmtFecha(recepcion.fecha)}</p>{recepcion.firmaUrl&&<img src={recepcion.firmaUrl} alt="Firma del cliente" className="w-full max-h-28 object-contain border border-gray-200 rounded-xl bg-white"/>}</div> : <p className="text-sm text-gray-500">Pendiente de registrar.</p>}
+        <Btn onClick={()=>setRecepcionAbierta(true)} full><Icono className="ui-icon" nombre="firma"/> {recepcion?"Editar recepción del cliente":"Registrar nombre y firma"}</Btn>
+      </Card>
       <div className={`rounded-2xl border-2 overflow-hidden ${informe.resultado?"border-green-200 bg-green-50":"border-dashed border-gray-200 bg-white"}`}>
         <div className="p-4">{informe.resultado?(<div><p className="font-bold text-green-700 text-sm mb-1"><Icono className="ui-icon" nombre="listo"/> Mantenimiento completado</p><p className="text-xs text-green-600 mb-3">{aprobados} aprobados · {noAprobados} no aprobados de {equipos.length} equipos</p><button onClick={()=>generatePDFAC(informe)} className="w-full py-2.5 rounded-xl text-xs font-bold text-white hover:opacity-90" style={{background:DARK}}><Icono className="ui-icon" nombre="imprimir"/> Generar PDF del informe</button></div>):(<div><p className="font-bold text-gray-500 text-sm mb-1">¿Terminaste el mantenimiento?</p><p className="text-xs text-gray-400 mb-4">Al finalizar se guardará el informe y podrás generar el PDF.</p><button onClick={handleFinalizar} className="w-full py-3.5 rounded-xl font-extrabold text-white text-sm hover:opacity-90 active:scale-95 transition-all" style={{background:"#0c4a6e"}}><Icono className="ui-icon" nombre="listo"/> Finalizar Mantenimiento</button></div>)}</div>
       </div>
     </div>
     <button onClick={()=>{setEditIdx(null);setModal(true);}} className="floating-add fixed bottom-6 right-6 w-14 h-14 rounded-2xl shadow-2xl text-white text-3xl flex items-center justify-center z-20 active:scale-90 hover:opacity-90 transition-all" style={{background:"#38bdf8"}} aria-label="Agregar elemento">+</button>
+    {recepcionAbierta&&<FichaLocal cuenta={cuenta} clave={claveRecepcion} cerrar={()=>setRecepcionAbierta(false)}>
+      {(datos,registro)=><RecepcionClienteModal recepcion={datos??recepcion} registro={registro} onSave={guardarRecepcion} onClose={()=>setRecepcionAbierta(false)}/>}
+    </FichaLocal>}
     {modal&&<FichaLocal key={claveFicha} cuenta={cuenta} clave={claveFicha} cerrar={()=>setModal(false)}>
       {(datos, registro) => <EquipoACModal registro={registro} equipo={datos ?? (editIdx!==null?equipos[editIdx]:null)} num={editIdx!==null?editIdx+1:equipos.length+1} onSave={saveEquipo} onClose={()=>setModal(false)}/>}
     </FichaLocal>}
