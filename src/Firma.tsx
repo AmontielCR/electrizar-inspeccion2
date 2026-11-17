@@ -1,0 +1,14 @@
+import { useState, useRef } from "react";
+import { Icono } from "./PanelTrabajos";
+const DARK="#111827";
+export function Firma({onConfirm,onClose,titulo="Firma del responsable"}:any){
+  const canvasRef=useRef<HTMLCanvasElement>(null);const[drawing,setDraw]=useState(false);const[hasFirma,setHas]=useState(false);
+  const getPos=(e:any)=>{const c=canvasRef.current!;const r=c.getBoundingClientRect();const sx=c.width/r.width,sy=c.height/r.height;let cx,cy;if(e.touches?.length){cx=e.touches[0].clientX;cy=e.touches[0].clientY;}else{cx=e.clientX;cy=e.clientY;}return{x:(cx-r.left)*sx,y:(cy-r.top)*sy};};
+  const start=(e:any)=>{if(e.cancelable)e.preventDefault();const c=canvasRef.current!;const ctx=c.getContext("2d")!;const pos=getPos(e);ctx.beginPath();ctx.moveTo(pos.x,pos.y);setDraw(true);setHas(true);};
+  const move=(e:any)=>{if(!drawing)return;if(e.cancelable)e.preventDefault();const c=canvasRef.current!;const ctx=c.getContext("2d")!;const pos=getPos(e);ctx.lineWidth=2.5;ctx.lineCap="round";ctx.strokeStyle="#111827";ctx.lineTo(pos.x,pos.y);ctx.stroke();};
+  const end=()=>setDraw(false);
+  const clear=()=>{const c=canvasRef.current!;c.getContext("2d")!.clearRect(0,0,c.width,c.height);setHas(false);};
+  const confirm=()=>{if(!hasFirma){alert("Dibuja tu firma primero.");return;}const c=canvasRef.current!;onConfirm(c.toDataURL("image/png"));};
+  return(<div className="app-dialog fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-white rounded-3xl overflow-hidden w-full max-w-sm shadow-2xl"><div className="flex items-center justify-between px-4 py-3 border-b border-gray-100"><span className="font-bold text-gray-800 text-sm"><Icono className="ui-icon" nombre="firma"/> {titulo}</span><button aria-label="Cerrar" onClick={onClose} className="text-gray-300 hover:text-gray-600 font-bold text-lg"><Icono className="ui-icon" nombre="cerrar"/></button></div><div className="p-4"><div className="border-2 border-gray-200 rounded-2xl overflow-hidden bg-gray-50"><canvas ref={canvasRef} width={380} height={180} className="w-full touch-none cursor-crosshair" style={{display:"block"}} onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end} onTouchStart={start} onTouchMove={move} onTouchEnd={end}/></div><div className="flex items-center justify-center mt-2 mb-4"><div className="h-px bg-gray-300 flex-1"/><span className="text-[10px] text-gray-400 mx-3">Firma aquí</span><div className="h-px bg-gray-300 flex-1"/></div><div className="flex gap-3"><button onClick={clear} className="flex-1 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-50">Limpiar</button><button onClick={confirm} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white hover:opacity-90" style={{background:DARK}}>Confirmar <Icono className="ui-icon" nombre="listo"/></button></div></div></div></div>);
+}
+

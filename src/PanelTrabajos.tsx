@@ -1,4 +1,5 @@
 const SERVICIOS = [
+  { id: "incendio", titulo: "Mantenimiento de Sistemas Contra Incendio", descripcion: "Registra evidencias del mantenimiento de alarmas, bombas y sistemas de supresión.", detalle: "Alarma · Bomba · Supresión", icono: "incendio", color: "naranja" },
   { id: "verificacion", titulo: "Verificación Eléctrica", descripcion: "Evalúa la instalación y documenta hallazgos, resultados y plazos de mejora.", detalle: "Aprobada · Condicionada · Rechazada", icono: "check", color: "ambar" },
   { id: "inspeccion", titulo: "Inspección Eléctrica", descripcion: "Registra las condiciones de seguridad y las observaciones de la instalación.", detalle: "Aprobada · No aprobada", icono: "rayo", color: "violeta" },
   { id: "ac", titulo: "Mantenimiento de Aires", descripcion: "Documenta el mantenimiento de cada equipo con su registro fotográfico.", detalle: "Preventivo · Correctivo", icono: "aire", color: "azul" },
@@ -8,6 +9,8 @@ const SERVICIOS = [
 
 export function Icono({ nombre, className = "" }: { nombre: string; className?: string }) {
   const trazos: Record<string, React.ReactNode> = {
+    incendio: <><path d="M12 2c2 4 0 5 3 8l2-3c3 4 4 7 2 11a8 8 0 0 1-14-1c-2-5 2-9 7-15Z"/><path d="M12 12c-4 4-4 7 0 9 4-2 4-5 0-9Z"/></>,
+    alarma: <><path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3ZM10 21h4M3 6l2-2m14 0 2 2M12 2v2"/></>,
     check: <><path d="m9 11 2 2 4-4"/><path d="M9 4H6a2 2 0 0 0-2 2v14h16V6a2 2 0 0 0-2-2h-3"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M8 17h8"/></>,
     rayo: <path d="m13 2-9 12h7l-1 8 10-13h-8l1-7Z"/>,
     aire: <><path d="M3 8h12a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h5a3 3 0 1 1-3 3"/></>,
@@ -44,7 +47,7 @@ export function PanelTrabajos({ onSelect, usuario, onLogout, marca }: any) {
     </div></header>
     <main className="workspace-main">
       <div className="workspace-intro"><div><p className="eyebrow">CENTRO DE TRABAJO</p><h1>Todo listo para tu próxima visita.</h1><p className="intro-description">Selecciona el trabajo y comienza a documentar cada detalle.</p></div><span className="workspace-label">Informes técnicos</span></div>
-      <div className="section-heading"><h2>¿Qué vas a realizar?</h2><span>5 tipos de trabajo</span></div>
+      <div className="section-heading"><h2>¿Qué vas a realizar?</h2><span>{SERVICIOS.length} tipos de trabajo</span></div>
       <div className="service-grid">{SERVICIOS.map(servicio => <button key={servicio.id} className={`service-card service-${servicio.color}`} onClick={() => onSelect(servicio.id)}>
         <div className="service-card-top"><span className="service-icon"><Icono nombre={servicio.icono}/></span><Icono nombre="flecha" className="service-arrow"/></div>
         <h3>{servicio.titulo}</h3><p>{servicio.descripcion}</p><span className="service-detail">{servicio.detalle}</span>

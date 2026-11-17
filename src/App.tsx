@@ -1,3 +1,5 @@
+import { SelectorIncendio, NuevoIncendio } from "./Incendio";
+import { Firma as FirmaCanvas } from "./Firma";
 import { Icono } from "./PanelTrabajos";
 import { Boton, Tarjeta, Campo, TituloPagina } from "./Interfaz";
 import { abrirVistaPDF } from "./vistaPDF";
@@ -262,7 +264,7 @@ const downloadImagesZip=async(informe:any)=>{
 /* ══ UI ATOMS ══ */
 const Logo = Marca;
 const Badge=({v}:{v:string})=>{const p=PRIOS.find(x=>x.v===v)||PRIOS[1];return<span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${p.tw}`}>{p.L}</span>;};
-const ResBadge=({v}:{v?:string})=>{if(!v)return null;const cfg=v==="Aprobada"||v==="Aprobado"?"bg-green-100 text-green-700":v==="Condicionada"?"bg-amber-100 text-amber-700":"bg-red-100 text-red-700";return<span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${cfg}`}>{v}</span>;};
+const ResBadge=({v}:{v?:string})=>{if(!v)return null;const cfg=v==="Aprobada"||v==="Aprobado"||v==="Completado"?"bg-green-100 text-green-700":v==="Condicionada"?"bg-amber-100 text-amber-700":"bg-red-100 text-red-700";return<span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${cfg}`}>{v}</span>;};
 const Pill=({children,active,color,onClick}:any)=>(<button onClick={onClick} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${active?"text-white":"border-gray-200 text-gray-400 bg-white hover:bg-gray-50"}`} style={active?{background:color||Y,borderColor:color||Y}:{}}>{children}</button>);
 const Btn = Boton;
 const Card = Tarjeta;
@@ -297,17 +299,6 @@ function PlantillasInline({tipo,onSelect,onClose,current}:any){
 }
 
 /* ══ FIRMA CANVAS ══ */
-function FirmaCanvas({onConfirm,onClose,titulo="Firma del responsable"}:any){
-  const canvasRef=useRef<HTMLCanvasElement>(null);const[drawing,setDraw]=useState(false);const[hasFirma,setHas]=useState(false);
-  const getPos=(e:any)=>{const c=canvasRef.current!;const r=c.getBoundingClientRect();const sx=c.width/r.width,sy=c.height/r.height;let cx,cy;if(e.touches?.length){cx=e.touches[0].clientX;cy=e.touches[0].clientY;}else{cx=e.clientX;cy=e.clientY;}return{x:(cx-r.left)*sx,y:(cy-r.top)*sy};};
-  const start=(e:any)=>{if(e.cancelable)e.preventDefault();const c=canvasRef.current!;const ctx=c.getContext("2d")!;const pos=getPos(e);ctx.beginPath();ctx.moveTo(pos.x,pos.y);setDraw(true);setHas(true);};
-  const move=(e:any)=>{if(!drawing)return;if(e.cancelable)e.preventDefault();const c=canvasRef.current!;const ctx=c.getContext("2d")!;const pos=getPos(e);ctx.lineWidth=2.5;ctx.lineCap="round";ctx.strokeStyle="#111827";ctx.lineTo(pos.x,pos.y);ctx.stroke();};
-  const end=()=>setDraw(false);
-  const clear=()=>{const c=canvasRef.current!;c.getContext("2d")!.clearRect(0,0,c.width,c.height);setHas(false);};
-  const confirm=()=>{if(!hasFirma){alert("Dibuja tu firma primero.");return;}const c=canvasRef.current!;onConfirm(c.toDataURL("image/png"));};
-  return(<div className="app-dialog fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-white rounded-3xl overflow-hidden w-full max-w-sm shadow-2xl"><div className="flex items-center justify-between px-4 py-3 border-b border-gray-100"><span className="font-bold text-gray-800 text-sm"><Icono className="ui-icon" nombre="firma"/> {titulo}</span><button aria-label="Cerrar" onClick={onClose} className="text-gray-300 hover:text-gray-600 font-bold text-lg"><Icono className="ui-icon" nombre="cerrar"/></button></div><div className="p-4"><div className="border-2 border-gray-200 rounded-2xl overflow-hidden bg-gray-50"><canvas ref={canvasRef} width={380} height={180} className="w-full touch-none cursor-crosshair" style={{display:"block"}} onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end} onTouchStart={start} onTouchMove={move} onTouchEnd={end}/></div><div className="flex items-center justify-center mt-2 mb-4"><div className="h-px bg-gray-300 flex-1"/><span className="text-[10px] text-gray-400 mx-3">Firma aquí</span><div className="h-px bg-gray-300 flex-1"/></div><div className="flex gap-3"><button onClick={clear} className="flex-1 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-50">Limpiar</button><button onClick={confirm} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white hover:opacity-90" style={{background:DARK}}>Confirmar <Icono className="ui-icon" nombre="listo"/></button></div></div></div></div>);
-}
-
 /* ══ DELETE MODAL ══ */
 function DeleteModal({informe,onConfirm,onClose,onDelete}:any){const[loading,setLoad]=useState(false);const handle=async()=>{setLoad(true);try { await onDelete(informe.id); onConfirm(); } catch { alert("No se pudo eliminar el informe."); setLoad(false); }};return(<div className="app-dialog fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"><div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center text-2xl mx-auto mb-4"><Icono className="ui-icon" nombre="eliminar"/></div><h3 className="font-extrabold text-gray-900 text-lg text-center mb-1">¿Eliminar informe?</h3><p className="text-sm text-gray-500 text-center mb-2"><span className="font-mono font-bold text-gray-700">{informe.codigo}</span></p><p className="text-xs text-gray-400 text-center mb-6">{informe.propietario} · {informe.fecha}<br/><span className="text-red-400 font-semibold">Esta acción no se puede deshacer.</span></p><div className="flex gap-3"><button aria-label="Cerrar" onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-sm border-2 border-gray-200 text-gray-600 hover:bg-gray-50">Cancelar</button><button onClick={handle} disabled={loading} className="flex-1 py-3 rounded-xl font-bold text-sm text-white disabled:opacity-60" style={{background:"#dc2626"}}>{loading?"Eliminando…":"Sí, eliminar"}</button></div></div></div>);}
 
@@ -381,7 +372,7 @@ function AnnotationEditor({imageUrl,onConfirm,onClose}:any){
     </div>
     <div className="shrink-0 px-3 pt-2.5 pb-3 space-y-2.5" style={{background:DARK}}>
       <div className="flex items-center gap-1.5">
-        {TOOLS.map(t=>(<button key={t.id} onClick={()=>setTool(t.id)} className={`flex-1 py-2 rounded-xl flex flex-col items-center gap-0.5 text-xs font-bold border-2 transition-all ${tool===t.id?"border-transparent text-gray-900":"border-white/10 text-white/50 hover:text-white"}`} style={tool===t.id?{background:Y}:{}}><span className="text-sm leading-none"><Icono className="ui-icon" nombre={t.id==="todos"?"informes":t.id==="ac"?"aire":t.id==="generador"?"generador":t.id==="operacion"?"agua":t.id==="inspeccion"?"rayo":"check"}/></span><span className="text-[9px]">{t.L}</span></button>))}
+        {TOOLS.map(t=>(<button key={t.id} onClick={()=>setTool(t.id)} className={`flex-1 py-2 rounded-xl flex flex-col items-center gap-0.5 text-xs font-bold border-2 transition-all ${tool===t.id?"border-transparent text-gray-900":"border-white/10 text-white/50 hover:text-white"}`} style={tool===t.id?{background:Y}:{}}><span className="text-sm leading-none"><Icono className="ui-icon" nombre={t.id==="incendio"?"incendio":t.id==="todos"?"informes":t.id==="ac"?"aire":t.id==="generador"?"generador":t.id==="operacion"?"agua":t.id==="inspeccion"?"rayo":"check"}/></span><span className="text-[9px]">{t.L}</span></button>))}
         <div className="w-px h-10 bg-white/10 mx-0.5"/>
         <button onClick={()=>setShapes((p:any[])=>p.slice(0,-1))} className="px-2.5 py-2 rounded-xl border-2 border-white/10 text-white/50 hover:text-white flex flex-col items-center"><span className="text-sm"><Icono className="ui-icon" nombre="informes"/></span><span className="text-[9px] text-white/40">Undo</span></button>
         <button onClick={()=>{if(confirm("¿Borrar todo?"))setShapes([]);}} className="px-2.5 py-2 rounded-xl border-2 border-white/10 text-white/50 hover:text-red-400 flex flex-col items-center"><span className="text-sm"><Icono className="ui-icon" nombre="eliminar"/></span><span className="text-[9px] text-white/40">Clear</span></button>
@@ -425,10 +416,10 @@ function HomeView({informes,loading,onNew,onOpen,usuario,onLogout,onDelete,estad
   const[delTarget,setDel]=useState<any>(null);const[tabActiva,setTab]=useState("todos");const[busqueda,setBusq]=useState("");
   const[online,setOnline]=useState(navigator.onLine);const[exporting,setExp]=useState<string|null>(null);
   useEffect(()=>{const on=()=>setOnline(true);const off=()=>setOnline(false);window.addEventListener("online",on);window.addEventListener("offline",off);return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};},[]);
-  const TABS=[{id:"todos",label:"Todos",icon:"📋"},{id:"verificacion",label:"Verificación",icon:"🔍"},{id:"inspeccion",label:"Inspección",icon:"⚡"},{id:"ac",label:"Aires AC",icon:"🌡️"},{id:"operacion",label:"Operaciones",icon:"💧"},{id:"generador",label:"Generadores",icon:"⚙️"}];
+  const TABS=[{id:"todos",label:"Todos",icon:"📋"},{id:"incendio",label:"Contra incendio",icon:"incendio"},{id:"verificacion",label:"Verificación",icon:"🔍"},{id:"inspeccion",label:"Inspección",icon:"⚡"},{id:"ac",label:"Aires AC",icon:"🌡️"},{id:"operacion",label:"Operaciones",icon:"💧"},{id:"generador",label:"Generadores",icon:"⚙️"}];
   const filtrados=[...informes].sort((a:any,b:any)=>(b.createdAt||0)-(a.createdAt||0)).filter((inf:any)=>(tabActiva==="todos"||inf.tipo===tabActiva)&&(!busqueda||inf.propietario?.toLowerCase().includes(busqueda.toLowerCase())||inf.codigo?.toLowerCase().includes(busqueda.toLowerCase())||inf.equipo?.toLowerCase().includes(busqueda.toLowerCase())));
   const conteo=(tipo:string)=>informes.filter((i:any)=>tipo==="todos"?true:i.tipo===tipo).length;
-  const tipoBadge=(t:string)=>t==="generador"?{label:"Generadores",bg:"#ccfbf1",color:"#115e59"}:t==="operacion"?{label:"Operaciones",bg:"#e0f2fe",color:"#075985"}:t==="ac"?{label:"Aires AC",bg:"#0c4a6e22",color:"#0369a1"}:t==="inspeccion"?{label:"Inspección",bg:DARK+"18",color:DARK}:{label:"Verificación",bg:Y+"22",color:Y};
+  const tipoBadge=(t:string)=>t==="incendio"?{label:"Contra incendio",bg:"#fff0e5",color:"#9a4e16"}:t==="generador"?{label:"Generadores",bg:"#ccfbf1",color:"#115e59"}:t==="operacion"?{label:"Operaciones",bg:"#e0f2fe",color:"#075985"}:t==="ac"?{label:"Aires AC",bg:"#0c4a6e22",color:"#0369a1"}:t==="inspeccion"?{label:"Inspección",bg:DARK+"18",color:DARK}:{label:"Verificación",bg:Y+"22",color:Y};
   const handleWord=async(inf:any)=>{setExp(inf.id);try{if(inf.tipo==="ac")await generateWordAC(inf);else await generateWordElectrico(inf);}catch(e:any){alert("Error al generar Word: "+e.message);}finally{setExp(null);}};
   const handleZip=async(inf:any)=>{setExp(inf.id+"zip");try{await downloadImagesZip(inf);}catch(e:any){alert("Error al generar ZIP: "+e.message);}finally{setExp(null);};};
   const handleShare=(inf:any)=>{if(inf.tipo==="ac")generatePDFAC(inf);else generatePDFElectrico(inf);};
@@ -455,7 +446,7 @@ function HomeView({informes,loading,onNew,onOpen,usuario,onLogout,onDelete,estad
       {estadoCarga && <div role="status" className="mb-4 text-sm text-amber-800"><p>{estadoCarga}</p>{reintentarConsulta && <button onClick={reintentarConsulta} className="mt-2 px-3 py-2 rounded-xl bg-amber-100 font-semibold">Reintentar consulta</button>}</div>}
       {loading?(<div className="flex items-center justify-center py-24 gap-3"><div className="w-6 h-6 border-2 border-gray-200 border-t-amber-400 rounded-full animate-spin"/><span className="text-gray-400 text-sm">Cargando informes…</span></div>):!filtrados.length?(<div className="text-center py-20"><div className="w-20 h-20 rounded-2xl mx-auto mb-5 flex items-center justify-center text-4xl" style={{background:Y+"22"}}><Icono nombre="informes"/></div><p className="text-gray-400 text-sm">{tabActiva==="todos"?"No hay informes. Toca + Nuevo para comenzar.":`No hay informes de ${TABS.find(t=>t.id===tabActiva)?.label}.`}</p></div>):(
       <div className="space-y-3">{filtrados.map((inf:any)=>{
-        const exportacionClasica = !inf.partesElectrizar && inf.tipo !== "operacion" && inf.tipo !== "generador";
+        const exportacionClasica = !inf.partesElectrizar && inf.tipo !== "operacion" && inf.tipo !== "generador" && inf.tipo !== "incendio";
         const tb=tipoBadge(inf.tipo);const nEl=inf.cantidadElementos ?? (inf.tipo==="ac"?inf.equipos?.length||0:inf.elementos?.length||0);
         const apAC=inf.tipo==="ac"&&!inf.partesElectrizar?(inf.equipos||[]).filter((e:any)=>e.resultado==="Aprobado").length:null;
         const altaCount=inf.tipo!=="ac"?(inf.elementos||[]).filter((e:any)=>e.prioridad==="alta").length:0;
@@ -846,6 +837,7 @@ export default function App() {
   const [validando, setValidando] = useState(nubeActiva);
   const [vista, setVista] = useState("selector");
   const [tipo, setTipo] = useState("");
+  const [sistemaIncendio,setSistemaIncendio]=useState("alarma");
   const [sitio, setSitio] = useState("");
   const [activo, setActivo] = useState<any>(null);
   const [remotos, setRemotos] = useState<any[]>([]);
@@ -1043,7 +1035,7 @@ export default function App() {
   };
   const elegir = (seleccion: string) => {
     setTipo(seleccion);
-    setVista(seleccion === "home" ? "lista" : seleccion === "operacion" ? "sitios" : "nuevo");
+    setVista(seleccion === "home" ? "lista" : seleccion === "operacion" ? "sitios" : seleccion === "incendio" ? "sistemas-incendio" : "nuevo");
   };
   const salir = async () => {
     if (nubeActiva) {
@@ -1065,6 +1057,8 @@ export default function App() {
   if (vista === "lista") return <HomeView informes={lista} loading={cargando} estadoCarga={[errorLocal,errorConsulta,estadoCarga].filter(Boolean).join(" ")} reintentarConsulta={errorConsulta ? () => consulta.current?.reintentar() : undefined} onNew={() => setVista("selector")} onOpen={abrir} usuario={usuario} onLogout={salir} onDelete={eliminar} />;
   if (vista === "sitios") return <Sitios usuario={usuario} onVer={() => setVista("selector")} onSelect={(clave: string) => { setSitio(clave); setVista("nueva-operacion"); }} />;
   if (vista === "nueva-operacion") return <NuevaOperacion planta={sitio} onCreate={crear} onBack={() => setVista("sitios")} usuario={usuario} />;
+  if (vista === "sistemas-incendio") return <SelectorIncendio usuario={usuario} onBack={()=>setVista("selector")} onSelect={(clave:string)=>{setSistemaIncendio(clave);setVista("nuevo");}}/>;
+  if (vista === "nuevo" && tipo === "incendio") return <NuevoIncendio sistema={sistemaIncendio} usuario={usuario} codigoSugerido={suggestCodigo(lista)} onBack={()=>setVista("sistemas-incendio")} onCreate={crear}/>;
   if (vista === "nuevo" && tipo === "generador") return <NuevoGenerador onCreate={crear} onBack={() => setVista("selector")} usuario={usuario} />;
   if (vista === "nuevo") return <NuevoView onCreate={crear} onBack={() => setVista("selector")} usuario={usuario} tipo={tipo} informes={lista} />;
   if (!activo) return null;
@@ -1086,7 +1080,7 @@ export default function App() {
     if (ok) setVista("lista");
     return ok;
   };
-  if (activo.tipo === "operacion" || activo.tipo === "generador") return <Operacion {...props} />;
+  if (activo.tipo === "operacion" || activo.tipo === "generador" || activo.tipo === "incendio") return <Operacion {...props} />;
   if (activo.tipo === "ac") return <MantenimientoACView {...props} onFinalize={finalizar} />;
   return <InspeccionView {...props} onFinalize={finalizar} />;
 }

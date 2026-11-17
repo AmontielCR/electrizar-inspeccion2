@@ -1,3 +1,4 @@
+import { sistemasIncendio, firmasIncendioCompletas, descripcionIncendio, CierreIncendio } from "./Incendio";
 import { Boton, Tarjeta, Campo, TituloPagina } from "./Interfaz";
 import { abrirVistaPDF } from "./vistaPDF";
 import { Marca, simboloURI, marcaURI } from "./Marca";
@@ -76,7 +77,7 @@ const PLANTAS: Record<string, {
 };
 
 const GENERADOR = { icon: "⚙️", color: TEAL, nombre: "Generadores", agrupado: false };
-const perfilInforme = (inf: any) => inf.tipo === "generador" ? GENERADOR : PLANTAS[inf.planta];
+const perfilInforme = (inf: any) => inf.tipo === "incendio" ? {color:"#9a4e16",agrupado:false,nombre:sistemasIncendio[inf.sistemaIncendio]?.nombre||"Sistemas Contra Incendio"} : inf.tipo === "generador" ? GENERADOR : PLANTAS[inf.planta];
 const pieFoto = (foto: any, indice: number, cantidad: number) =>
   foto.pie ?? (cantidad === 2 ? ["ANTES", "DESPUÉS"][indice] : "");
 
@@ -197,10 +198,11 @@ const esc=(s:string)=>(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace
 const nl2br=(s:string)=>esc(s).replace(/\n/g,"<br/>");
 
 const generatePDF=(inf:any)=>{
+  if(inf.tipo==="incendio"&&!firmasIncendioCompletas(inf.firmasIncendio))throw new Error("Se requieren las firmas del técnico y del cliente para generar el documento.");
   const P=perfilInforme(inf);
   const els=elementosExportables(inf);
   const nElLabel=P.agrupado?`${els.length} (${new Set(els.map((e:any)=>e.grupo)).size} grupos)`:`${els.length}`;
-  const totalPags=els.length+2;
+  const totalPags=els.length+2+(inf.tipo==="incendio"?1:0);
   const hdr=pdfHdr(nElLabel);
 
   // Portada
@@ -238,9 +240,10 @@ const generatePDF=(inf:any)=>{
   const resList=resItems.map((r:string,i:number)=>`<div class="li" style="margin-bottom:6px;">${i+1}- ${nl2br(r)}</div>`).join("")||`<div class="li" style="color:#aaa">Sin acciones registradas.</div>`;
   const recomendaciones=recomendacionesGenerador(inf);
   const recomendacionesHTML=recomendaciones.length ? `<div class="sec">Recomendaciones</div>${recomendaciones.map(r=>`<div class="li">- ${nl2br(r)}</div>`).join("")}` : "";
-  const resumen=`<div class="pg"><div class="body">${hdr}<div class="res-h">Resumen General</div><div class="sec" style="margin-top:0;">Acciones Realizadas:</div>${resList}${recomendacionesHTML}</div>${pdfFtr(totalPags,totalPags)}</div>`;
+  const resumen=`<div class="pg"><div class="body">${hdr}<div class="res-h">Resumen General</div><div class="sec" style="margin-top:0;">Acciones Realizadas:</div>${resList}${recomendacionesHTML}</div>${pdfFtr(els.length+2,totalPags)}</div>`;
 
-  openPDF(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/><title>${esc(inf.codigo)}</title><style>${PDF_CSS}</style></head><body>${portada}${elPags}${resumen}</body></html>`);
+  const cierre=inf.tipo==="incendio"?`<div class="pg"><div class="body">${hdr}<div class="res-h">Cierre del mantenimiento</div><div style="display:flex;gap:28px;margin-top:24px">${[ ["Técnico responsable",inf.firmasIncendio.tecnico],["Representante del cliente",inf.firmasIncendio.cliente] ].map(([etiqueta,persona]:any)=>`<div style="flex:1;min-width:0;border:1px solid #dce3ec;border-radius:10px;padding:20px"><h3 style="font-size:12pt;margin-bottom:14px">${etiqueta}</h3><div style="font-size:10pt;line-height:1.8"><b>Nombre:</b> ${esc(persona.nombre)}<br/><b>Fecha:</b> ${esc(persona.fecha.split("-").reverse().join("/"))}</div><img alt="Firma de ${etiqueta}" src="${esc(persona.firmaUrl)}" style="display:block;width:260px;max-width:100%;height:123px;object-fit:contain;margin-top:18px"/><p style="font-size:9pt;color:#555;margin-top:8px">Firma</p></div>`).join("")}</div></div>${pdfFtr(totalPags,totalPags)}</div>`:"";
+  openPDF(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/><title>${esc(inf.codigo)}</title><style>${PDF_CSS}</style></head><body>${portada}${elPags}${resumen}${cierre}</body></html>`);
 };
 
 /* ══ WORD (docx) — mismo contenido, apaisado ══ */
@@ -266,6 +269,7 @@ const wFtr=()=>new Footer({children:[wTbl([new TableRow({children:[
 const wDownload=async(docx:any,codigo:string)=>{const blob=await Packer.toBlob(docx);const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${codigo}.docx`;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);};
 
 const generateWord=async(inf:any)=>{
+  if(inf.tipo==="incendio"&&!firmasIncendioCompletas(inf.firmasIncendio))throw new Error("Se requieren las firmas del técnico y del cliente para generar el documento.");
   const P=perfilInforme(inf);
   const els=elementosExportables(inf);
   const nElLabel=P.agrupado?`${els.length} (${new Set(els.map((e:any)=>e.grupo)).size} grupos)`:`${els.length}`;
@@ -319,7 +323,18 @@ const generateWord=async(inf:any)=>{
   if (recomendaciones.length) resumen.push(wp([wt("Recomendaciones",{bold:true,size:22})],{spacing:{before:120,after:60}}),
     ...recomendaciones.map(r=>wp([wt("- "+r,{size:21})])));
 
-  const docx=new Document({sections:[{properties:PP,headers:{default:wHdr(nElLabel)},footers:{default:wFtr()},children:[...cover,...elParas,...resumen]}]});
+  const cierre:any[]=inf.tipo==="incendio"?[wpb(),wp([wt("Cierre del mantenimiento",{bold:true,size:32})],{spacing:{after:240}}),
+    wTbl([new TableRow({children:([
+      ["Técnico responsable",inf.firmasIncendio.tecnico],
+      ["Representante del cliente",inf.firmasIncendio.cliente],
+    ] as any[]).map(([etiqueta,persona])=>wCell([
+      wp([wt(etiqueta,{bold:true,size:24})],{spacing:{after:180}}),
+      wp([wt("Nombre: ",{bold:true,size:21}),wt(persona.nombre,{size:21})],{spacing:{after:120}}),
+      wp([wt("Fecha: ",{bold:true,size:21}),wt(persona.fecha.split("-").reverse().join("/"),{size:21})],{spacing:{after:180}}),
+      wp([wImg(persona.firmaUrl.split(",")[1],"png",260,123)]),
+      wp([wt("Firma",{size:20,color:"555555"})]),
+    ],CW/2))})],[CW/2,CW/2])]:[];
+  const docx=new Document({sections:[{properties:PP,headers:{default:wHdr(nElLabel)},footers:{default:wFtr()},children:[...cover,...elParas,...resumen,...cierre]}]});
   await wDownload(docx,inf.codigo);
 };
 
@@ -496,7 +511,7 @@ export function NuevoGenerador({ onCreate, onBack, usuario }: any) {
   </div>;
 }
 
-function ElementoModal({el,index,plantaColor,onSave,onClose,registro,esGenerador}:any){
+function ElementoModal({el,index,plantaColor,onSave,onClose,registro,esGenerador,esIncendio}:any){
   const[titulo,setT]=useState(el.titulo||"");
   const[desc,setD]=useState(el.desc||"");
   const[estado,setEstado]=useState(el.estado||"");
@@ -536,7 +551,7 @@ function ElementoModal({el,index,plantaColor,onSave,onClose,registro,esGenerador
   };
 
   const isHall=el.kind==="hallazgo";
-  const kindLabel=isHall?"Hallazgos":el.kind==="extra"?"Hoja extraordinaria":"Tarea";
+  const kindLabel=isHall?"Hallazgos":esIncendio?"Evidencia de mantenimiento":el.kind==="extra"?"Hoja extraordinaria":"Tarea";
   return(<div className="app-dialog fixed inset-0 bg-black/70 z-40 flex flex-col justify-end sm:justify-center sm:items-center sm:p-4">
     <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col" style={{maxHeight:"93vh"}}>
       <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0"><button aria-label="Cerrar" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 font-bold text-lg"><Icono className="ui-icon" nombre="cerrar"/></button><span className="font-bold text-gray-800">{kindLabel} <span className="font-mono text-gray-400">({index+1})</span></span><Btn onClick={save} sm color={plantaColor}>Guardar <Icono className="ui-icon" nombre="listo"/></Btn></div>
@@ -619,6 +634,10 @@ function ResumenModal({resumen,esChecklist,plantaColor,onSave,onClose}:any){
 export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
   const P=perfilInforme(informe);
   const esGenerador = informe.tipo === "generador";
+  const esIncendio=informe.tipo==="incendio";
+  const [firmasAbiertas,setFirmasAbiertas]=useState(false);
+  const [formatoFinal,setFormatoFinal]=useState<string|null>(null);
+  const claveFirmas=informe.id+"/incendio/firmas";
   const[editIdx,setEditIdx]=useState<number|null>(null);
   const[extra,setExtra]=useState<any>(null);
   const[resM,setResM]=useState(false);
@@ -665,15 +684,26 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
   };
   const saveResumen=(items:string[])=>{ commit({...informe,resumen:items}); setResM(false); };
 
+  const generarDocumento=async(fmt:string,datos:any)=>{
+    setGen(fmt);
+    try{if(fmt==="pdf")generatePDF(datos);else await generateWord(datos);}
+    catch(e:any){alert("Error al generar: "+(e.message||e));}
+    finally{setGen(null);}
+  };
+  const guardarFirmas=async(firmas:any)=>{
+    const datos={...informe,firmasIncendio:firmas,tecnico:firmas.tecnico.nombre,resultado:"Completado",finalizadoAt:Date.now()};
+    datos.descripcion=descripcionIncendio(datos);
+    const ok=await commit(datos,claveFirmas);
+    if(ok){setFirmasAbiertas(false);if(formatoFinal)await generarDocumento(formatoFinal,datos);setFormatoFinal(null);}
+    return ok;
+  };
   const doGen=async(fmt:string)=>{
     if(gen)return;
     const aviso=!els.length ? "El informe no contiene elementos. ¿Deseas generar el documento de todas formas?"
       : pendientes ? 'Hay '+pendientes+' tareas de la lista base pendientes. Se mostrarán como pendientes en el documento. ¿Deseas generarlo de todas formas?' : "";
     if(aviso&&!confirm(aviso))return;
-    setGen(fmt);
-    try{ if(fmt==="pdf") generatePDF(informe); else await generateWord(informe); }
-    catch(e:any){ alert("Error al generar: "+(e.message||e)); }
-    finally{ setGen(null); }
+    if(esIncendio&&!firmasIncendioCompletas(informe.firmasIncendio)){setFormatoFinal(fmt);setFirmasAbiertas(true);return;}
+    await generarDocumento(fmt,informe);
   };
 
   // agrupar índices por grupo para render
@@ -681,11 +711,11 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
 
   return(<div className="screen-report min-h-screen" style={{background:"#f8f9fb"}}>
     <header style={{background:DARK}} className="px-4 py-4 sticky top-0 z-10 shadow-lg"><div className="max-w-2xl mx-auto">
-      <div className="flex items-center gap-2 mb-2"><button aria-label="Volver" onClick={onBack} className="text-white/60 hover:text-white text-xl">←</button><Logo sm white/><span className="ml-auto text-[10px] font-bold px-2 py-1 rounded-lg" style={{background:P.color+"30",color:P.color}}><Icono className="ui-icon" nombre="agua"/> {P.nombre.toUpperCase()}</span></div>
-      <div className="ml-1"><div className="font-mono text-[11px] text-white/40">{informe.codigo}</div><div className="font-bold text-white text-sm">{esGenerador ? informe.tituloCorto : `Informe #${informe.numInforme} · ${mesAnioTexto(informe.fechaFin)}`}</div></div>
+      <div className="flex items-center gap-2 mb-2"><button aria-label="Volver" onClick={onBack} className="text-white/60 hover:text-white text-xl">←</button><Logo sm white/><span className="ml-auto text-[10px] font-bold px-2 py-1 rounded-lg" style={{background:P.color+"30",color:P.color}}><Icono className="ui-icon" nombre={esIncendio?"incendio":esGenerador?"generador":"agua"}/> {P.nombre.toUpperCase()}</span></div>
+      <div className="ml-1"><div className="font-mono text-[11px] text-white/40">{informe.codigo}</div><div className="font-bold text-white text-sm">{esGenerador || esIncendio ? informe.tituloCorto : `Informe #${informe.numInforme} · ${mesAnioTexto(informe.fechaFin)}`}</div></div>
     </div></header>
 
-    <div className="bg-white border-b border-gray-100 px-4 py-2"><div className="max-w-2xl mx-auto flex gap-5 text-xs flex-wrap"><span className="text-gray-500"><Icono className="ui-icon" nombre="camara"/> <b className="text-gray-700">{conFoto}/{els.length}</b> con foto</span><span className="text-gray-500"><Icono className="ui-icon" nombre="calendario"/> {esGenerador ? informe.fecha : informe.periodo}</span>{esGenerador && <span className="font-semibold text-teal-900">{planesGenerador[informe.plan as PlanGenerador]}</span>}{!!requeridas.length && <span className="font-semibold text-gray-700">{requeridas.length-pendientes}/{requeridas.length} tareas registradas</span>}</div></div>
+    <div className="bg-white border-b border-gray-100 px-4 py-2"><div className="max-w-2xl mx-auto flex gap-5 text-xs flex-wrap"><span className="text-gray-500"><Icono className="ui-icon" nombre="camara"/> <b className="text-gray-700">{conFoto}/{els.length}</b> con foto</span><span className="text-gray-500"><Icono className="ui-icon" nombre="calendario"/> {esGenerador || esIncendio ? informe.fecha : informe.periodo}</span>{esGenerador && <span className="font-semibold text-teal-900">{planesGenerador[informe.plan as PlanGenerador]}</span>}{!!requeridas.length && <span className="font-semibold text-gray-700">{requeridas.length-pendientes}/{requeridas.length} tareas registradas</span>}</div></div>
 
     <div className="report-content p-4 max-w-2xl mx-auto pb-40 space-y-5">
       {guardado}
@@ -699,7 +729,7 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
                   ?<div className="flex gap-1 shrink-0">{e.fotos.slice(0,2).map((f:any,k:number)=>(<img key={k} src={f.url} className="w-16 h-16 object-cover rounded-lg"/>))}</div>
                   :<div className="w-16 h-16 bg-gray-100 rounded-lg shrink-0 flex items-center justify-center text-2xl"><Icono className="ui-icon" nombre="camara"/></div>}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1"><span className="font-mono text-[10px] text-gray-300">({i+1})</span>{e.kind==="hallazgo"&&<span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-50 text-red-600">HALLAZGOS</span>}{e.kind==="extra"&&<span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">EXTRAORDINARIO</span>}</div>
+                  <div className="flex items-center gap-1.5 mb-1"><span className="font-mono text-[10px] text-gray-300">({i+1})</span>{e.kind==="hallazgo"&&<span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-50 text-red-600">HALLAZGOS</span>}{e.kind==="extra"&&<span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">{esIncendio?"MANTENIMIENTO":"EXTRAORDINARIO"}</span>}</div>
                   <div className="font-bold text-sm text-gray-800 leading-snug">{e.titulo}</div>
                   {e.kind==="hallazgo"?<div className="text-xs text-gray-400 mt-1">{(e.obs||[]).filter((x:string)=>x.trim()).length} obs · {(e.acc||[]).filter((x:string)=>x.trim()).length} acciones</div>:<div className="text-xs text-gray-400 mt-1 truncate">{e.requerido ? (tareaCompleta(e) ? detalleElemento(e) : "Pendiente de completar") : (e.desc||"Sin descripción")}</div>}
                 </div>
@@ -710,7 +740,7 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
               </div>
             </div>
           ))}
-          <button onClick={()=>addExtra(grupo)} className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-xs font-bold text-gray-400 hover:border-gray-300 hover:text-gray-500">+ Agregar trabajo o evidencia{grupo?` en ${grupo}`:""}</button>
+          <button onClick={()=>addExtra(grupo)} className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-xs font-bold text-gray-400 hover:border-gray-300 hover:text-gray-500">{esIncendio?"+ Agregar evidencia del mantenimiento":"+ Agregar trabajo o evidencia"}{grupo?` en ${grupo}`:""}</button>
         </div>
       ))}
 
@@ -721,6 +751,7 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
         <div className="p-4"><div className="flex items-center justify-between"><div><p className="font-bold text-gray-800 text-sm"><Icono className="ui-icon" nombre="copiar"/> Resumen General</p><p className="text-xs text-gray-400 mt-0.5">{(informe.resumen||[]).filter((x:string)=>x.trim()).length} {informe.checklistVersion ? "notas de resumen" : "acciones realizadas"}</p></div><Btn onClick={()=>setResM(true)} sm color={P.color}>Editar</Btn></div></div>
       </div>
 
+      {esIncendio&&<Card title="Firmas de cierre" accent><p className="text-sm text-gray-600">Para finalizar se requieren las firmas del técnico responsable y de un representante del cliente.</p>{firmasIncendioCompletas(informe.firmasIncendio)&&<p className="text-sm text-green-700">Firmas registradas: {informe.firmasIncendio.tecnico.nombre} y {informe.firmasIncendio.cliente.nombre}.</p>}<Btn onClick={()=>{setFormatoFinal(null);setFirmasAbiertas(true);}} full>{firmasIncendioCompletas(informe.firmasIncendio)?"Revisar firmas de cierre":"Finalizar y firmar"}</Btn></Card>}
       {/* Generar */}
       <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-4">
         <p className="font-bold text-gray-600 text-sm mb-1">Generar informe para el cliente</p>
@@ -734,11 +765,12 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
     </div>
 
     {editIdx!==null&&<FichaLocal key={claveFicha} cuenta={cuenta} clave={claveFicha} cerrar={()=>setEditIdx(null)}>
-      {(datos, registro) => <ElementoModal esGenerador={esGenerador} registro={registro} el={datos ?? els[editIdx]} index={editIdx} plantaColor={P.color} onSave={saveEl} onClose={()=>setEditIdx(null)}/>}
+      {(datos, registro) => <ElementoModal esIncendio={esIncendio} esGenerador={esGenerador} registro={registro} el={datos ?? els[editIdx]} index={editIdx} plantaColor={P.color} onSave={saveEl} onClose={()=>setEditIdx(null)}/>}
     </FichaLocal>}
     {extra && <FichaLocal key={claveExtra} cuenta={cuenta} clave={claveExtra} cerrar={()=>setExtra(null)}>
       {(datos, registro) => <ElementoModal esGenerador={esGenerador} registro={registro} el={datos ?? extra} index={els.length} plantaColor={P.color} onSave={saveExtra} onClose={()=>setExtra(null)}/>}
     </FichaLocal>}
+    {firmasAbiertas&&<FichaLocal cuenta={cuenta} clave={claveFirmas} cerrar={()=>setFirmasAbiertas(false)}>{(datos,registro)=><CierreIncendio informe={informe} datos={datos} registro={registro} onSave={guardarFirmas} onClose={()=>setFirmasAbiertas(false)}/>}</FichaLocal>}
     {resM&&<ResumenModal resumen={informe.resumen} esChecklist={!!informe.checklistVersion} plantaColor={P.color} onSave={saveResumen} onClose={()=>setResM(false)}/>}
   </div>);
 }
