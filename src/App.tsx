@@ -1,3 +1,4 @@
+import { fusionarInformes, identificarElementos, aplicarEdicion, integrarPublicacion } from "./colaboracion";
 import { SelectorIncendio, NuevoIncendio } from "./Incendio";
 import { Firma as FirmaCanvas } from "./Firma";
 import { Icono } from "./PanelTrabajos";
@@ -6,7 +7,7 @@ import { abrirVistaPDF } from "./vistaPDF";
 import { Marca, simboloURI, marcaURI } from "./Marca";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { iniciarSesion, observarSesion, cerrarSesion, nubeActiva, observarInformes, sincronizar, borrarRemoto, descargarInforme } from "./nube";
-import { leerBorradores, escribirBorrador, quitarBorrador, type Borrador } from "./borradores";
+import { leerBorradores, escribirBorrador, quitarBorrador, leerFichasInforme, type Borrador } from "./borradores";
 import { FichaLocal, useAutoguardadoFicha } from "./FichaLocal";
 import { PanelTrabajos } from "./PanelTrabajos";
 import { consultaRecuperable } from "./consultaRecuperable";
@@ -682,10 +683,11 @@ function MantenimientoACView({informe,onUpdate,onBack,onFinalize,guardado,cuenta
     if(ok)setRecepcionAbierta(false);
     return ok;
   };
-  const[modal,setModal]=useState(false);const[editIdx,setEditIdx]=useState<number|null>(null);
+  const[modal,setModal]=useState(false);const[editando,setEditando]=useState<any>(null);
   const equipos=informe.equipos||[];const aprobados=equipos.filter((e:any)=>e.resultado==="Aprobado").length;const noAprobados=equipos.filter((e:any)=>e.resultado==="No Aprobado").length;
-  const claveFicha = informe.id + "/aire/" + (editIdx ?? "nuevo");
-  const saveEquipo=async(eq:any)=>{const list=[...equipos];if(editIdx!==null)list[editIdx]={...eq,num:editIdx+1};else list.push({...eq,num:list.length+1});const updated={...informe,equipos:list};const ok = await onUpdate(updated, claveFicha); if (ok) setModal(false); return ok;};
+  const editIdx=editando?equipos.findIndex((eq:any)=>eq.id===editando.id):null;
+  const claveFicha = informe.id + "/aire/" + (editando?.id ?? "nuevo");
+  const saveEquipo=async(eq:any)=>{eq={...eq,id:editando?.id||eq.id||crypto.randomUUID()};const updated=aplicarEdicion(informe,"equipos",editando,eq);updated.equipos=updated.equipos.map((item:any,i:number)=>({...item,num:i+1}));const ok=await onUpdate(updated,claveFicha);if(ok)setModal(false);return ok;};
   const delEquipo=(i:number)=>{if(!confirm("¿Eliminar este equipo?"))return;const list=equipos.filter((_:any,j:number)=>j!==i).map((e:any,j:number)=>({...e,num:j+1}));const updated={...informe,equipos:list};onUpdate(updated);};
   const handleFinalizar=()=>{if(equipos.length===0&&!confirm("El informe no contiene equipos. ¿Deseas finalizarlo y generar sus documentos de todas formas?"))return;const updated={...informe,resultado:"Completado",finalizadoAt:Date.now()};onFinalize(updated);};
   return(<div className="screen-report min-h-screen" style={{background:"#f4f6fa"}}>
@@ -701,7 +703,7 @@ function MantenimientoACView({informe,onUpdate,onBack,onFinalize,guardado,cuenta
       {!equipos.length?(<div className="text-center py-20"><div className="w-20 h-20 rounded-2xl mx-auto mb-5 flex items-center justify-center text-4xl" style={{background:"#38bdf822"}}><Icono className="ui-icon" nombre="aire"/></div><p className="text-gray-400 text-sm">Toca <b style={{color:Y}}>+</b> para agregar el primer equipo</p></div>):(
         equipos.map((eq:any,i:number)=>(<div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="p-3"><div className="flex items-start justify-between gap-2 mb-2"><div><div className="font-mono text-[10px] text-gray-300">({eq.num})</div><div className="font-bold text-gray-800 text-sm">{eq.nombre}</div>{eq.ubicacion&&<div className="text-xs text-gray-400"><Icono className="ui-icon" nombre="informes"/> {eq.ubicacion}</div>}</div><ResBadge v={eq.resultado}/></div><div className="flex gap-1.5 mt-2">{AC_FOTOS.map((f:any)=>(<div key={f.key} className="flex-1 aspect-square rounded-lg overflow-hidden border border-gray-100" style={{maxWidth:60}}>{eq.fotos?.[f.key]?<img src={eq.fotos[f.key]} alt={f.label} className="w-full h-full object-cover"/>:<div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300 text-sm"><Icono className="ui-icon" nombre="aire"/></div>}</div>))}</div>{eq.resultado==="No Aprobado"&&eq.acciones?.length>0&&<div className="mt-2 text-xs text-red-600 font-medium"><Icono className="ui-icon" nombre="alerta"/> {eq.acciones.length} acción{eq.acciones.length>1?"es":""} reportada{eq.acciones.length>1?"s":""}</div>}</div>
-          <div className="flex border-t border-gray-50 divide-x divide-gray-50 text-xs"><button onClick={()=>{setEditIdx(i);setModal(true);}} className="flex-1 py-2.5 text-gray-500 hover:bg-gray-50 font-semibold transition-colors"><Icono className="ui-icon" nombre="editar"/> Editar</button><button onClick={()=>delEquipo(i)} className="flex-1 py-2.5 text-red-400 hover:bg-red-50 font-semibold transition-colors"><Icono className="ui-icon" nombre="eliminar"/> Eliminar</button></div>
+          <div className="flex border-t border-gray-50 divide-x divide-gray-50 text-xs"><button onClick={()=>{setEditando(equipos[i]);setModal(true);}} className="flex-1 py-2.5 text-gray-500 hover:bg-gray-50 font-semibold transition-colors"><Icono className="ui-icon" nombre="editar"/> Editar</button><button onClick={()=>delEquipo(i)} className="flex-1 py-2.5 text-red-400 hover:bg-red-50 font-semibold transition-colors"><Icono className="ui-icon" nombre="eliminar"/> Eliminar</button></div>
         </div>))
       )}
       <Card title="Recepción por parte del cliente" accent>
@@ -713,12 +715,12 @@ function MantenimientoACView({informe,onUpdate,onBack,onFinalize,guardado,cuenta
         <div className="p-4">{informe.resultado?(<div><p className="font-bold text-green-700 text-sm mb-1"><Icono className="ui-icon" nombre="listo"/> Mantenimiento completado</p><p className="text-xs text-green-600 mb-3">{aprobados} aprobados · {noAprobados} no aprobados de {equipos.length} equipos</p><button onClick={()=>generatePDFAC(informe)} className="w-full py-2.5 rounded-xl text-xs font-bold text-white hover:opacity-90" style={{background:DARK}}><Icono className="ui-icon" nombre="imprimir"/> Generar PDF del informe</button></div>):(<div><p className="font-bold text-gray-500 text-sm mb-1">¿Terminaste el mantenimiento?</p><p className="text-xs text-gray-400 mb-4">Al finalizar se guardará el informe y podrás generar el PDF.</p><button onClick={handleFinalizar} className="w-full py-3.5 rounded-xl font-extrabold text-white text-sm hover:opacity-90 active:scale-95 transition-all" style={{background:"#0c4a6e"}}><Icono className="ui-icon" nombre="listo"/> Finalizar Mantenimiento</button></div>)}</div>
       </div>
     </div>
-    <button onClick={()=>{setEditIdx(null);setModal(true);}} className="floating-add fixed bottom-6 right-6 w-14 h-14 rounded-2xl shadow-2xl text-white text-3xl flex items-center justify-center z-20 active:scale-90 hover:opacity-90 transition-all" style={{background:"#38bdf8"}} aria-label="Agregar elemento">+</button>
+    <button onClick={()=>{setEditando(null);setModal(true);}} className="floating-add fixed bottom-6 right-6 w-14 h-14 rounded-2xl shadow-2xl text-white text-3xl flex items-center justify-center z-20 active:scale-90 hover:opacity-90 transition-all" style={{background:"#38bdf8"}} aria-label="Agregar elemento">+</button>
     {recepcionAbierta&&<FichaLocal cuenta={cuenta} clave={claveRecepcion} cerrar={()=>setRecepcionAbierta(false)}>
       {(datos,registro)=><RecepcionClienteModal recepcion={datos??recepcion} registro={registro} onSave={guardarRecepcion} onClose={()=>setRecepcionAbierta(false)}/>}
     </FichaLocal>}
     {modal&&<FichaLocal key={claveFicha} cuenta={cuenta} clave={claveFicha} cerrar={()=>setModal(false)}>
-      {(datos, registro) => <EquipoACModal registro={registro} equipo={datos ?? (editIdx!==null?equipos[editIdx]:null)} num={editIdx!==null?editIdx+1:equipos.length+1} onSave={saveEquipo} onClose={()=>setModal(false)}/>}
+      {(datos, registro) => <EquipoACModal registro={registro} equipo={datos ?? editando} num={editIdx!==null&&editIdx>=0?editIdx+1:equipos.length+1} onSave={saveEquipo} onClose={()=>setModal(false)}/>}
     </FichaLocal>}
   </div>);
 }
@@ -791,12 +793,13 @@ function ElementoModal({el,num,onSave,onClose,registro}:any){
 
 /* ══ INSPECCIÓN / VERIFICACIÓN ══ */
 function InspeccionView({informe,onUpdate,onBack,onFinalize,guardado,cuenta}:any){
-  const[modal,setModal]=useState(false);const[editIdx,setEditIdx]=useState<number|null>(null);const[finalM,setFinalM]=useState(false);
+  const[modal,setModal]=useState(false);const[editando,setEditando]=useState<any>(null);const[finalM,setFinalM]=useState(false);
   const tipo=informe.tipo||"verificacion";const tipoLabel=tipo==="inspeccion"?"Inspección":"Verificación";
-  const claveFicha = informe.id + "/electrico/" + (editIdx ?? "nuevo");
-  const saveEl=async(el:any)=>{const els=[...(informe.elementos||[])];if(editIdx!==null)els[editIdx]={...el,num:editIdx+1};else els.push({...el,num:els.length+1});const updated={...informe,elementos:els};const ok = await onUpdate(updated, claveFicha); if (ok) setModal(false); return ok;};
+  const editIdx=editando?(informe.elementos||[]).findIndex((e:any)=>e.id===editando.id):null;
+  const claveFicha = informe.id + "/electrico/" + (editando?.id ?? "nuevo");
+  const saveEl=async(el:any)=>{el={...el,id:editando?.id||el.id||crypto.randomUUID()};const updated=aplicarEdicion(informe,"elementos",editando,el);updated.elementos=updated.elementos.map((item:any,i:number)=>({...item,num:i+1}));const ok=await onUpdate(updated,claveFicha);if(ok)setModal(false);return ok;};
   const delEl=(i:number)=>{const e=informe.elementos[i];if(!confirm(e.requerido?"Este elemento pertenece a la lista base y dejará de aparecer en el informe. ¿Deseas eliminarlo de todas formas?":"¿Eliminar este elemento del informe?"))return;const els=informe.elementos.filter((_:any,j:number)=>j!==i).map((e:any,j:number)=>({...e,num:j+1}));const updated={...informe,elementos:els};onUpdate(updated);};
-  const dupEl=(i:number)=>{const src={...informe.elementos[i]};const els=[...informe.elementos,{...src,num:informe.elementos.length+1,titulo:src.titulo+" (copia)"}];const updated={...informe,elementos:els};onUpdate(updated);};
+  const dupEl=(i:number)=>{const src={...informe.elementos[i],id:crypto.randomUUID()};const els=[...informe.elementos,{...src,num:informe.elementos.length+1,titulo:src.titulo+" (copia)"}];const updated={...informe,elementos:els};onUpdate(updated);};
   const moveEl=(i:number,dir:number)=>{const els=[...informe.elementos];const j=i+dir;if(j<0||j>=els.length)return;[els[i],els[j]]=[els[j],els[i]];const renumbered=els.map((e,k)=>({...e,num:k+1}));const updated={...informe,elementos:renumbered};onUpdate(updated);};
   const handleFinalize=async(data:any)=>{const updated={...informe,...data};const ok=await onFinalize(updated);if(ok)setFinalM(false);return ok;};
   const alta=(informe.elementos||[]).filter((e:any)=>e.prioridad==="alta").length,total=informe.elementos?.length||0;
@@ -813,16 +816,16 @@ function InspeccionView({informe,onUpdate,onBack,onFinalize,guardado,cuenta}:any
       {!total?(<div className="text-center py-20"><div className="w-20 h-20 rounded-2xl mx-auto mb-5 flex items-center justify-center text-4xl" style={{background:Y+"22"}}><Icono className="ui-icon" nombre="camara"/></div><p className="text-gray-400 text-sm">Toca <b style={{color:Y}}>+</b> para agregar el primer elemento</p></div>):(
         informe.elementos.map((el:any,i:number)=>(<div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex gap-3 p-3">{el.url?<img src={el.url} alt={el.titulo} className="w-20 h-20 object-cover rounded-xl shrink-0"/>:<div className="w-20 h-20 bg-gray-100 rounded-xl shrink-0 flex items-center justify-center text-2xl"><Icono className="ui-icon" nombre="camara"/></div>}<div className="flex-1 min-w-0"><div className="flex items-center justify-between gap-1 mb-1"><span className="font-mono text-[10px] text-gray-300">({el.num})</span><Badge v={el.prioridad}/></div><div className="font-bold text-sm text-gray-800 leading-snug">{el.titulo}</div><div className="text-xs text-gray-400 mt-1">{el.hallazgos?.length||0} hallazgos · {el.acciones?.length||0} acciones</div></div></div>
-          <div className="flex border-t border-gray-50 divide-x divide-gray-50 text-xs"><button onClick={()=>moveEl(i,-1)} disabled={i===0} className="py-2.5 px-3 text-gray-400 hover:bg-gray-50 disabled:opacity-30 transition-colors" aria-label="Subir elemento">↑</button><button onClick={()=>moveEl(i,1)} disabled={i===(informe.elementos?.length||0)-1} className="py-2.5 px-3 text-gray-400 hover:bg-gray-50 disabled:opacity-30 transition-colors" aria-label="Bajar elemento">↓</button><button onClick={()=>{setEditIdx(i);setModal(true);}} className="flex-1 py-2.5 text-gray-500 hover:bg-gray-50 font-semibold transition-colors"><Icono className="ui-icon" nombre="editar"/> Editar</button><button onClick={()=>dupEl(i)} className="py-2.5 px-3 text-blue-400 hover:bg-blue-50 font-semibold transition-colors" aria-label="Duplicar elemento"><Icono className="ui-icon" nombre="copiar"/></button><button onClick={()=>delEl(i)} className="flex-1 py-2.5 text-red-400 hover:bg-red-50 font-semibold transition-colors" aria-label="Eliminar elemento"><Icono className="ui-icon" nombre="eliminar"/></button></div>
+          <div className="flex border-t border-gray-50 divide-x divide-gray-50 text-xs"><button onClick={()=>moveEl(i,-1)} disabled={i===0} className="py-2.5 px-3 text-gray-400 hover:bg-gray-50 disabled:opacity-30 transition-colors" aria-label="Subir elemento">↑</button><button onClick={()=>moveEl(i,1)} disabled={i===(informe.elementos?.length||0)-1} className="py-2.5 px-3 text-gray-400 hover:bg-gray-50 disabled:opacity-30 transition-colors" aria-label="Bajar elemento">↓</button><button onClick={()=>{setEditando(informe.elementos[i]);setModal(true);}} className="flex-1 py-2.5 text-gray-500 hover:bg-gray-50 font-semibold transition-colors"><Icono className="ui-icon" nombre="editar"/> Editar</button><button onClick={()=>dupEl(i)} className="py-2.5 px-3 text-blue-400 hover:bg-blue-50 font-semibold transition-colors" aria-label="Duplicar elemento"><Icono className="ui-icon" nombre="copiar"/></button><button onClick={()=>delEl(i)} className="flex-1 py-2.5 text-red-400 hover:bg-red-50 font-semibold transition-colors" aria-label="Eliminar elemento"><Icono className="ui-icon" nombre="eliminar"/></button></div>
         </div>))
       )}
       <div className={`rounded-2xl border-2 overflow-hidden ${informe.resultado?"border-green-200 bg-green-50":"border-dashed border-gray-200 bg-white"}`}>
         <div className="p-4">{informe.resultado?(<div><div className="flex items-center justify-between mb-2"><p className="font-bold text-green-700 text-sm"><Icono className="ui-icon" nombre="listo"/> {tipoLabel} finalizada</p><ResBadge v={informe.resultado}/></div>{tipo!=="inspeccion"&&<p className="text-xs text-green-600 mb-3">Plazo: {informe.plazo}</p>}<div className="flex gap-2"><button onClick={()=>setFinalM(true)} className="flex-1 py-2.5 rounded-xl text-xs font-bold border-2 border-green-200 text-green-700 hover:bg-green-100"><Icono className="ui-icon" nombre="editar"/> Editar resultado</button><button onClick={()=>generatePDFElectrico(informe)} className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white hover:opacity-90" style={{background:DARK}}><Icono className="ui-icon" nombre="imprimir"/> Generar PDF</button></div></div>):(<div><p className="font-bold text-gray-500 text-sm mb-1">¿Terminaste de fotografiar?</p><p className="text-xs text-gray-400 mb-4">Al finalizar se asignará el resultado y quedará disponible en todos los dispositivos.</p><button onClick={()=>{if(total===0&&!confirm("El informe no contiene elementos. ¿Deseas finalizarlo de todas formas? Deberás seleccionar el resultado manualmente."))return;setFinalM(true);}} className="w-full py-3.5 rounded-xl font-extrabold text-white text-sm hover:opacity-90 active:scale-95 transition-all" style={{background:DARK}}><Icono className="ui-icon" nombre="listo"/> Finalizar {tipoLabel}</button></div>)}</div>
       </div>
     </div>
-    <button onClick={()=>{setEditIdx(null);setModal(true);}} className="floating-add fixed bottom-6 right-6 w-14 h-14 rounded-2xl shadow-2xl text-white text-3xl flex items-center justify-center z-20 active:scale-90 hover:opacity-90 transition-all" style={{background:Y}} aria-label="Agregar elemento">+</button>
+    <button onClick={()=>{setEditando(null);setModal(true);}} className="floating-add fixed bottom-6 right-6 w-14 h-14 rounded-2xl shadow-2xl text-white text-3xl flex items-center justify-center z-20 active:scale-90 hover:opacity-90 transition-all" style={{background:Y}} aria-label="Agregar elemento">+</button>
     {modal&&<FichaLocal key={claveFicha} cuenta={cuenta} clave={claveFicha} cerrar={()=>setModal(false)}>
-      {(datos, registro) => <ElementoModal registro={registro} el={datos ?? (editIdx!==null?informe.elementos[editIdx]:null)} num={editIdx!==null?editIdx+1:(informe.elementos?.length||0)+1} onSave={saveEl} onClose={()=>setModal(false)}/>}
+      {(datos, registro) => <ElementoModal registro={registro} el={datos ?? editando} num={editIdx!==null&&editIdx>=0?editIdx+1:(informe.elementos?.length||0)+1} onSave={saveEl} onClose={()=>setModal(false)}/>}
     </FichaLocal>}
     {finalM&&<FinalizarModal informe={informe} onConfirm={handleFinalize} onClose={()=>setFinalM(false)}/>}
   </div>);
@@ -843,6 +846,7 @@ export default function App() {
   const [remotos, setRemotos] = useState<any[]>([]);
   const [locales, setLocales] = useState<Borrador[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [respaldoEnCurso,setRespaldoEnCurso]=useState(false);
   const [estadoCarga, setEstadoCarga] = useState("");
   const [errorLocal, setErrorLocal] = useState("");
   const [errorConsulta, setErrorConsulta] = useState("");
@@ -850,6 +854,7 @@ export default function App() {
   const [estados, setEstados] = useState<Record<string, EstadoGuardado>>({});
   const cola = useRef(new Map<string, Promise<unknown>>());
   const copias = useRef(new Map<string, Borrador>());
+  const versiones = useRef(new Map<string, any>());
   const publicando = useRef(new Set<string>());
   const cuentaActual = useRef("");
   const cuenta = usuario?.cuenta || "";
@@ -867,6 +872,7 @@ export default function App() {
 
   const reflejar = (borrador: Borrador) => {
     copias.current.set(borrador.id, borrador);
+    if(!borrador.pendiente){versiones.current.set(borrador.id+"@"+borrador.base,borrador.informe);while(versiones.current.size>8)versiones.current.delete(versiones.current.keys().next().value!);}
     setLocales(Array.from(copias.current.values()));
   };
 
@@ -879,16 +885,18 @@ export default function App() {
         const pendiente = copias.current.get(id);
         if (!pendiente?.pendiente) break;
         estado(id, "Sincronizando… El borrador está en este dispositivo.");
-        await sincronizar(pendiente);
+        const publicado = await sincronizar(pendiente);
         await serializar(clave, async () => {
           if (cuentaActual.current !== cuenta) return;
           const vigente = copias.current.get(id);
           if (!vigente) return;
           const posterior = vigente.revision !== pendiente.revision;
-          const siguiente = { ...vigente, base: pendiente.revision, pendiente: posterior };
+          const siguiente = integrarPublicacion(pendiente,vigente,publicado) as Borrador;
+          const combinado=siguiente.informe;
           await escribirBorrador(cuenta, siguiente);
           reflejar(siguiente);
-          estado(id, posterior ? "Guardado en este dispositivo · Pendiente de sincronizar" : "Sincronizado");
+          setActivo((prev:any)=>prev&&String(prev.id)===id?combinado:prev);
+          estado(id, posterior ? "Guardado en este dispositivo · Pendiente de sincronizar" : combinado.revisionesColaboracion?.length ? "Sincronizado · Hay versiones conservadas para revisar" : "Sincronizado");
         });
       }
     } catch (error: any) {
@@ -912,6 +920,7 @@ export default function App() {
   useEffect(() => {
     cuentaActual.current = cuenta;
     copias.current.clear();
+    versiones.current.clear();
     setLocales([]);
     setRemotos([]);
     setEstados({});
@@ -922,7 +931,7 @@ export default function App() {
     setCargando(true);
     leerBorradores(cuenta).then(datos => {
       if (!vigente) return;
-      for (const borrador of datos) copias.current.set(borrador.id, borrador);
+      for (const borrador of datos) {copias.current.set(borrador.id, borrador);if(!borrador.pendiente)versiones.current.set(borrador.id+"@"+borrador.base,borrador.informe);}
       setLocales(datos);
       for (const borrador of datos) if (borrador.pendiente) void publicar(borrador.id);
     }).catch(() => {
@@ -959,20 +968,24 @@ export default function App() {
   const guardar = async (informe: any, ficha?: string) => {
     const id = String(informe.id);
     const clave = cuenta + "/" + id;
+    let siguienteInforme=identificarElementos(informe);
     estado(id, "Guardando en este dispositivo…");
     try {
       await serializar(clave, async () => {
         const previo = copias.current.get(id);
-        const mismaCopia = previo && previo.informe.versionRemota === informe.versionRemota;
-        const base = previo?.pendiente || mismaCopia ? previo.base : informe.versionRemota ?? "";
+        if(previo && informe.versionRemota!==previo.base){
+          const original=versiones.current.get(id+"@"+(informe.versionRemota||""));
+          siguienteInforme={...fusionarInformes(original,siguienteInforme,previo.informe),versionRemota:previo.base};
+        }
+        const base=previo?.base??informe.versionRemota??"";
         const borrador: Borrador = {
-          id, informe: { ...informe, id }, base, revision: crypto.randomUUID(), pendiente: nubeActiva,
+          id, informe: { ...siguienteInforme, id }, original:previo?.pendiente?previo.original:previo?.informe, base, revision: crypto.randomUUID(), pendiente: nubeActiva,
         };
         await escribirBorrador(cuenta, borrador, ficha);
         if (cuentaActual.current === cuenta) reflejar(borrador);
       });
       if (cuentaActual.current !== cuenta) return false;
-      setActivo((prev: any) => prev && String(prev.id) === id ? { ...informe, id } : prev);
+      setActivo((prev: any) => prev && String(prev.id) === id ? { ...siguienteInforme, id } : prev);
       estado(id, nubeActiva ? "Guardado en este dispositivo · Pendiente de sincronizar" : "Guardado en este dispositivo");
       void publicar(id);
       return true;
@@ -981,6 +994,25 @@ export default function App() {
       return false;
     }
   };
+
+  useEffect(()=>{
+    if(!nubeActiva||!activo)return;
+    const id=String(activo.id),remoto=remotos.find(inf=>String(inf.id)===id);
+    if(!remoto||copias.current.get(id)?.pendiente||remoto.versionRemota===copias.current.get(id)?.base)return;
+    let vigente=true;
+    void (async()=>{
+      try{
+        const nuevo=identificarElementos(remoto.partesElectrizar?await descargarInforme(id):remoto);
+        await serializar(cuenta+"/"+id,async()=>{
+          if(!vigente||cuentaActual.current!==cuenta||copias.current.get(id)?.pendiente)return;
+          const copia={id,informe:nuevo,base:nuevo.versionRemota,revision:nuevo.versionRemota,pendiente:false};
+          await escribirBorrador(cuenta,copia);reflejar(copia);
+          setActivo((prev:any)=>prev&&String(prev.id)===id?nuevo:prev);
+        });
+      }catch{ /* A later snapshot or local save retries; keep the open report. */ }
+    })();
+    return ()=>{vigente=false;};
+  },[remotos,cuenta,activo?.id]);
 
   const informes = new Map(remotos.map(inf => [String(inf.id), inf]));
   for (const local of locales) {
@@ -1003,6 +1035,7 @@ export default function App() {
       }
     }
     if (cuentaActual.current !== cuenta) return;
+    completo=identificarElementos(completo);
     if (nubeActiva && completo.versionRemota && !copias.current.get(id)?.pendiente) {
       const revision = completo.versionRemota;
       const copia = { id, informe: completo, revision, base: revision, pendiente: false };
@@ -1014,7 +1047,7 @@ export default function App() {
         });
       } catch { estado(id, "Se abrió el informe, pero no se pudo crear una copia local.", true); }
     }
-    if (cuentaActual.current === cuenta) { setActivo(completo); setVista("editar"); }
+    if (cuentaActual.current === cuenta) { setActivo(identificarElementos(copias.current.get(id)?.informe??completo)); setVista("editar"); }
   };
   const crear = async (informe: any) => {
     if (await guardar(informe)) abrir(informe);
@@ -1067,11 +1100,37 @@ export default function App() {
   const actual = estados[id] || { texto: local
     ? local.pendiente ? "Guardado en este dispositivo · Pendiente de sincronizar" : nubeActiva ? "Sincronizado" : "Guardado en este dispositivo"
     : "Informe abierto desde el historial" };
+  const descargarRespaldo=async()=>{
+    if(respaldoEnCurso)return;
+    setRespaldoEnCurso(true);
+    try{
+      const fichas=await leerFichasInforme(cuenta,id);
+      const copia=copias.current.get(id);
+      const datos={formato:"electrizar-respaldo-v1",fecha:new Date().toISOString(),borrador:copia,informe:activo,fichas};
+      const zip=new JSZip();zip.file("informe-y-borradores.json",JSON.stringify(datos,null,2));
+      const imagenes=new Set<string>();
+      const recoger=(valor:any)=>{
+        if(typeof valor==="string"&&/^data:image\/(png|jpeg|webp);base64,/.test(valor)){
+          if(imagenes.has(valor))return;imagenes.add(valor);
+          const tipo=valor.slice(11,valor.indexOf(";"));
+          zip.file("fotos/imagen-"+String(imagenes.size).padStart(4,"0")+"."+(tipo==="jpeg"?"jpg":tipo),valor.split(",")[1],{base64:true});
+        }else if(Array.isArray(valor))valor.forEach(recoger);
+        else if(valor&&typeof valor==="object")Object.values(valor).forEach(recoger);
+      };recoger(datos);
+      const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE"});
+      const url=URL.createObjectURL(blob),enlace=document.createElement("a");
+      enlace.href=url;enlace.download="Respaldo-"+String(activo.codigo||id).replace(/[^a-zA-Z0-9_-]/g,"_")+".zip";enlace.click();
+      setTimeout(()=>URL.revokeObjectURL(url),10000);
+    }catch{estado(id,"No se pudo crear el respaldo. Mantén el informe abierto y vuelve a intentar.",true);}
+    finally{setRespaldoEnCurso(false);}
+  };
   const guardado = <div className="save-status max-w-2xl mx-auto flex items-center gap-3 flex-wrap p-3 bg-white">
     <button className="px-3 py-2 rounded-xl text-sm font-bold bg-amber-100" onClick={() => {
       if (local?.pendiente) void publicar(id);
       else if (!local || actual.error) void guardar(activo);
     }}>Guardar borrador</button>
+    <button onClick={descargarRespaldo} disabled={respaldoEnCurso}>{respaldoEnCurso?"Preparando respaldo…":"Descargar respaldo y fotos"}</button>
+    {!!activo.revisionesColaboracion?.length&&<p className="text-sm text-amber-800 w-full">Se conservaron cambios simultáneos. Revisa los elementos marcados como “Versión conservada para revisar”. El respaldo incluye las demás versiones para revisión.</p>}
     <span role="status" className={actual.error ? "text-sm text-red-700" : "text-sm text-gray-600"}>{actual.texto}</span>
   </div>;
   const props = { informe: activo, onUpdate: guardar, onBack: () => setVista("lista"), guardado, cuenta };

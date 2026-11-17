@@ -4,6 +4,7 @@ export type Borrador = {
   revision: string;
   base: string;
   pendiente: boolean;
+  original?: Record<string, any>;
 };
 
 let conexion: Promise<IDBDatabase> | undefined;
@@ -70,4 +71,16 @@ export function leerFicha(cuenta: string, clave: string) {
 
 export function escribirFicha(cuenta: string, clave: string, datos: unknown) {
   return operar(["fichas"], "readwrite", tx => tx.objectStore("fichas").put(datos, [cuenta, clave]));
+}
+
+export function leerFichasInforme(cuenta:string,id:string):Promise<{clave:string;datos:unknown}[]> {
+  const prefijo=id+"/";
+  const rango=IDBKeyRange.bound([cuenta,prefijo],[cuenta,prefijo+"\uffff"]);
+  return abrir().then(db=>new Promise((resolve,reject)=>{
+    const tx=db.transaction(["fichas"],"readonly");
+    const almacen=tx.objectStore("fichas");
+    const claves=almacen.getAllKeys(rango),datos=almacen.getAll(rango);
+    tx.oncomplete=()=>resolve(datos.result.map((valor,i)=>({clave:String((claves.result[i] as string[])[1]),datos:valor})));
+    tx.onabort=()=>reject(tx.error);
+  }));
 }

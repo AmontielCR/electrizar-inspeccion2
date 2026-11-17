@@ -1,3 +1,4 @@
+import { aplicarEdicion } from "./colaboracion";
 import { sistemasIncendio, firmasIncendioCompletas, descripcionIncendio, CierreIncendio } from "./Incendio";
 import { Boton, Tarjeta, Campo, TituloPagina } from "./Interfaz";
 import { abrirVistaPDF } from "./vistaPDF";
@@ -92,6 +93,12 @@ const tieneHallazgo = (el: any) =>
 
 const elementosExportables = (inf: any) => (inf.elementos || []).filter((el: any) =>
   el.kind !== "resumen" && (!inf.checklistVersion || el.kind !== "hallazgo" || tieneHallazgo(el)));
+
+const paginasEvidencias=(elementos:any[])=>elementos.flatMap(el=>{
+  const fotos=(el.fotos||[]).filter((foto:any)=>foto&&foto.url);
+  if(fotos.length<=2)return [el];
+  return Array.from({length:Math.ceil(fotos.length/2)},(_,i)=>({...el,fotos:fotos.slice(i*2,i*2+2),titulo:i?el.titulo+" · Fotos "+(i*2+1)+"–"+Math.min(i*2+2,fotos.length)+" de "+fotos.length:el.titulo}));
+});
 
 const resumenExportable = (inf: any) => {
   const notas = (inf.resumen || []).filter((texto: string) => texto.trim());
@@ -200,8 +207,9 @@ const nl2br=(s:string)=>esc(s).replace(/\n/g,"<br/>");
 const generatePDF=(inf:any)=>{
   if(inf.tipo==="incendio"&&!firmasIncendioCompletas(inf.firmasIncendio))throw new Error("Se requieren las firmas del técnico y del cliente para generar el documento.");
   const P=perfilInforme(inf);
-  const els=elementosExportables(inf);
-  const nElLabel=P.agrupado?`${els.length} (${new Set(els.map((e:any)=>e.grupo)).size} grupos)`:`${els.length}`;
+  const elementos=elementosExportables(inf);
+  const els=paginasEvidencias(elementos);
+  const nElLabel=P.agrupado?`${elementos.length} (${new Set(elementos.map((e:any)=>e.grupo)).size} grupos)`:`${elementos.length}`;
   const totalPags=els.length+2+(inf.tipo==="incendio"?1:0);
   const hdr=pdfHdr(nElLabel);
 
@@ -271,8 +279,9 @@ const wDownload=async(docx:any,codigo:string)=>{const blob=await Packer.toBlob(d
 const generateWord=async(inf:any)=>{
   if(inf.tipo==="incendio"&&!firmasIncendioCompletas(inf.firmasIncendio))throw new Error("Se requieren las firmas del técnico y del cliente para generar el documento.");
   const P=perfilInforme(inf);
-  const els=elementosExportables(inf);
-  const nElLabel=P.agrupado?`${els.length} (${new Set(els.map((e:any)=>e.grupo)).size} grupos)`:`${els.length}`;
+  const elementos=elementosExportables(inf);
+  const els=paginasEvidencias(elementos);
+  const nElLabel=P.agrupado?`${elementos.length} (${new Set(elementos.map((e:any)=>e.grupo)).size} grupos)`:`${elementos.length}`;
 
   // Portada
   const cover=[
@@ -638,7 +647,7 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
   const [firmasAbiertas,setFirmasAbiertas]=useState(false);
   const [formatoFinal,setFormatoFinal]=useState<string|null>(null);
   const claveFirmas=informe.id+"/incendio/firmas";
-  const[editIdx,setEditIdx]=useState<number|null>(null);
+  const[editando,setEditando]=useState<any>(null);
   const[extra,setExtra]=useState<any>(null);
   const[resM,setResM]=useState(false);
   const[gen,setGen]=useState<string|null>(null);
@@ -651,11 +660,12 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
   const pendientes = requeridas.filter((el: any) => !tareaCompleta(el)).length;
 
   const commit=onUpdate;
-  const claveFicha = editIdx !== null ? informe.id + "/" + informe.tipo + "/" + els[editIdx].id : "";
+  const editIdx=editando?els.findIndex((e:any)=>e.id===editando.id):null;
+  const claveFicha = editando ? informe.id + "/" + informe.tipo + "/" + editando.id : "";
   const claveExtra = extra ? informe.id + "/extra/" + extra.grupo : "";
   const saveEl = async (el: any) => {
-    const ok = await commit({ ...informe, elementos: els.map((e:any,i:number) => i === editIdx ? el : e) }, claveFicha);
-    if (ok) setEditIdx(null);
+    const ok = await commit(aplicarEdicion(informe,"elementos",editando,el), claveFicha);
+    if (ok) setEditando(null);
     return ok;
   };
   const delEl=async(i:number)=>{
@@ -735,7 +745,7 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
                 </div>
               </div>
               <div className="flex border-t border-gray-50 divide-x divide-gray-50 text-xs">
-                <button onClick={()=>setEditIdx(i)} className="flex-1 py-2.5 text-gray-500 hover:bg-gray-50 font-semibold"><Icono className="ui-icon" nombre="editar"/> Editar / Fotos</button>
+                <button onClick={()=>setEditando(els[i])} className="flex-1 py-2.5 text-gray-500 hover:bg-gray-50 font-semibold"><Icono className="ui-icon" nombre="editar"/> Editar / Fotos</button>
                 <button onClick={()=>delEl(i)} className="flex-1 py-2.5 text-red-400 hover:bg-red-50 font-semibold"><Icono className="ui-icon" nombre="eliminar"/> Eliminar</button>
               </div>
             </div>
@@ -764,8 +774,8 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
       </div>
     </div>
 
-    {editIdx!==null&&<FichaLocal key={claveFicha} cuenta={cuenta} clave={claveFicha} cerrar={()=>setEditIdx(null)}>
-      {(datos, registro) => <ElementoModal esIncendio={esIncendio} esGenerador={esGenerador} registro={registro} el={datos ?? els[editIdx]} index={editIdx} plantaColor={P.color} onSave={saveEl} onClose={()=>setEditIdx(null)}/>}
+    {editando&&<FichaLocal key={claveFicha} cuenta={cuenta} clave={claveFicha} cerrar={()=>setEditando(null)}>
+      {(datos, registro) => <ElementoModal esIncendio={esIncendio} esGenerador={esGenerador} registro={registro} el={datos ?? editando} index={editIdx!==null&&editIdx>=0?editIdx:els.length} plantaColor={P.color} onSave={saveEl} onClose={()=>setEditando(null)}/>}
     </FichaLocal>}
     {extra && <FichaLocal key={claveExtra} cuenta={cuenta} clave={claveExtra} cerrar={()=>setExtra(null)}>
       {(datos, registro) => <ElementoModal esGenerador={esGenerador} registro={registro} el={datos ?? extra} index={els.length} plantaColor={P.color} onSave={saveExtra} onClose={()=>setExtra(null)}/>}
