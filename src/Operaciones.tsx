@@ -83,7 +83,7 @@ const pieFoto = (foto: any, indice: number, cantidad: number) =>
 const ESTADOS = ["Realizado", "No realizado", "No aplica"] as const;
 
 const detalleElemento = (el: any) => el.requerido
-  ? [el.estado, el.lectura && el.estado === "Realizado" ? [el.lectura, el.unidad].filter(Boolean).join(" ") : "", el.desc].filter(Boolean).join(" · ")
+  ? [!tareaCompleta(el) ? "Pendiente de completar" : "", el.estado, el.lectura && el.estado === "Realizado" ? [el.lectura, el.unidad].filter(Boolean).join(" ") : "", el.desc].filter(Boolean).join(" · ")
   : el.desc || el.titulo;
 
 const tieneHallazgo = (el: any) =>
@@ -525,10 +525,6 @@ function ElementoModal({el,index,plantaColor,onSave,onClose,registro,esGenerador
   const save=async()=>{
     if (guardando.current) return;
     if(!titulo.trim()){setErr("El título es requerido.");return;}
-    if (el.kind === "extra" && !desc.trim() && !fotos.length) {
-      setErr("Agrega una descripción o una foto del trabajo.");
-      return;
-    }
     const detalle = el.requerido ? { estado, lectura: estado === "Realizado" ? lectura.trim() : "" } : {};
     guardando.current = true;
     try {
@@ -547,7 +543,7 @@ function ElementoModal({el,index,plantaColor,onSave,onClose,registro,esGenerador
       <div className="overflow-y-auto p-4 space-y-4 pb-6">
         {estadoGuardado && <p role="status" className="text-xs text-gray-600">{estadoGuardado}</p>}
         {el.grupo&&<div className="text-[11px] font-bold px-2.5 py-1 rounded-lg inline-block" style={{background:plantaColor+"18",color:plantaColor}}>{el.grupo}</div>}
-        <FI label="Título *" value={titulo} onChange={(e:any)=>{setT(e.target.value);setErr(null);}} placeholder="Título del elemento" readOnly={el.requerido}/>
+        <FI label="Título *" value={titulo} onChange={(e:any)=>{setT(e.target.value);setErr(null);}} placeholder="Título del elemento" />
         {el.requerido && (
           <div className="space-y-3">
             <label className="block text-xs font-semibold text-gray-600">
@@ -629,7 +625,8 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
   const[gen,setGen]=useState<string|null>(null);
 
   const els=informe.elementos||[];
-  const grupos:string[]=P.agrupado?Array.from(new Set(els.map((e:any)=>e.grupo as string))):[""];
+  const gruposExistentes:string[]=Array.from(new Set(els.map((e:any)=>e.grupo || "")));
+  const grupos:string[]=P.agrupado && gruposExistentes.length ? gruposExistentes : [""];
   const conFoto=els.filter((e:any)=>(e.fotos||[]).length>0).length;
   const requeridas = els.filter((el: any) => el.requerido);
   const pendientes = requeridas.filter((el: any) => !tareaCompleta(el)).length;
@@ -642,7 +639,14 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
     if (ok) setEditIdx(null);
     return ok;
   };
-  const delEl=(i:number)=>{ if(!confirm("¿Eliminar este elemento?"))return; commit({...informe,elementos:els.filter((_:any,j:number)=>j!==i)}); };
+  const delEl=async(i:number)=>{
+    const elemento=els[i];
+    const aviso=elemento.requerido || elemento.kind!=="extra"
+      ? 'Este elemento pertenece a la lista base: "'+elemento.titulo+'". Si lo eliminas, no aparecerá en el informe ni en los documentos. ¿Deseas eliminarlo de todas formas?'
+      : '¿Eliminar "'+elemento.titulo+'" de este informe?';
+    if(!confirm(aviso))return;
+    await commit({...informe,elementos:els.filter((_:any,j:number)=>j!==i)});
+  };
   const addExtra = (grupo: string) => {
     setExtra({ id: uid(), kind: "extra", grupo, titulo: "", desc: "", fotos: [], obs: [], acc: [] });
   };
@@ -655,14 +659,17 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
     return ok;
   };
   const addVisita=()=>{
-    const n=grupos.length+1; const g=`Visita #${n}`;
+    const n=Math.max(0,...gruposExistentes.map(g=>Number(g.match(/^Visita #(\d+)$/)?.[1])||0))+1; const g=`Visita #${n}`;
     const nuevos=seedElementos("lasanas",1,!!informe.checklistVersion).map((e:any)=>({...e,grupo:g}));
     commit({...informe,elementos:[...els,...nuevos]});
   };
   const saveResumen=(items:string[])=>{ commit({...informe,resumen:items}); setResM(false); };
 
   const doGen=async(fmt:string)=>{
-    if (pendientes) return;
+    if(gen)return;
+    const aviso=!els.length ? "El informe no contiene elementos. ¿Deseas generar el documento de todas formas?"
+      : pendientes ? 'Hay '+pendientes+' tareas de la lista base pendientes. Se mostrarán como pendientes en el documento. ¿Deseas generarlo de todas formas?' : "";
+    if(aviso&&!confirm(aviso))return;
     setGen(fmt);
     try{ if(fmt==="pdf") generatePDF(informe); else await generateWord(informe); }
     catch(e:any){ alert("Error al generar: "+(e.message||e)); }
@@ -670,7 +677,7 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
   };
 
   // agrupar índices por grupo para render
-  const renderGrupos=grupos.map((g:string)=>({grupo:g,items:els.map((e:any,i:number)=>({e,i})).filter((x:any)=>x.e.grupo===g)}));
+  const renderGrupos=grupos.map((g:string)=>({grupo:g,items:els.map((e:any,i:number)=>({e,i})).filter((x:any)=>(x.e.grupo||"")===g)}));
 
   return(<div className="screen-report min-h-screen" style={{background:"#f8f9fb"}}>
     <header style={{background:DARK}} className="px-4 py-4 sticky top-0 z-10 shadow-lg"><div className="max-w-2xl mx-auto">
@@ -699,7 +706,7 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
               </div>
               <div className="flex border-t border-gray-50 divide-x divide-gray-50 text-xs">
                 <button onClick={()=>setEditIdx(i)} className="flex-1 py-2.5 text-gray-500 hover:bg-gray-50 font-semibold"><Icono className="ui-icon" nombre="editar"/> Editar / Fotos</button>
-                {e.kind==="extra"&&<button onClick={()=>delEl(i)} className="flex-1 py-2.5 text-red-400 hover:bg-red-50 font-semibold"><Icono className="ui-icon" nombre="eliminar"/> Eliminar</button>}
+                <button onClick={()=>delEl(i)} className="flex-1 py-2.5 text-red-400 hover:bg-red-50 font-semibold"><Icono className="ui-icon" nombre="eliminar"/> Eliminar</button>
               </div>
             </div>
           ))}
@@ -718,10 +725,10 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
       <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-4">
         <p className="font-bold text-gray-600 text-sm mb-1">Generar informe para el cliente</p>
         <p className="text-xs text-gray-400 mb-4">Documento apaisado con portada, hojas de tareas, hallazgos y resumen.</p>
-        {!!pendientes && <p role="status" className="text-sm text-amber-700 mb-3">Completa las {pendientes} tareas pendientes para generar el informe.</p>}
+        {!!pendientes && <p role="status" className="text-sm text-amber-700 mb-3">Hay {pendientes} tareas pendientes. Puedes completarlas, eliminar las que no correspondan o generar el documento tras confirmar la advertencia.</p>}
         <div className="flex gap-2">
-          <button onClick={()=>doGen("pdf")} disabled={!!gen || pendientes > 0} className="flex-1 py-3 rounded-xl font-extrabold text-white text-sm disabled:opacity-60" style={{background:DARK}}>{gen==="pdf"?"…":"PDF"}</button>
-          <button onClick={()=>doGen("word")} disabled={!!gen || pendientes > 0} className="flex-1 py-3 rounded-xl font-extrabold text-sm border-2 disabled:opacity-60" style={{borderColor:P.color,color:P.color}}>{gen==="word"?"…":"Word"}</button>
+          <button onClick={()=>doGen("pdf")} disabled={!!gen} className="flex-1 py-3 rounded-xl font-extrabold text-white text-sm disabled:opacity-60" style={{background:DARK}}>{gen==="pdf"?"…":"PDF"}</button>
+          <button onClick={()=>doGen("word")} disabled={!!gen} className="flex-1 py-3 rounded-xl font-extrabold text-sm border-2 disabled:opacity-60" style={{borderColor:P.color,color:P.color}}>{gen==="word"?"…":"Word"}</button>
         </div>
       </div>
     </div>
