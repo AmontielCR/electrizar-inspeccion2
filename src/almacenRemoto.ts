@@ -50,7 +50,7 @@ export async function guardarRemoto(db: Firestore, borrador: Borrador) {
     for (let index = partes.length; index < anteriores; index++) tx.delete(doc(referencia, "partes", String(index)));
     const cabecera = partes.length ? {
       id: borrador.id, tipo: datos.tipo || "verificacion", planta: datos.planta || "", codigo: datos.codigo || "",
-      propietario: datos.propietario || "", direccion: datos.direccion || "", fecha: datos.fecha || "",
+      propietario: datos.propietario || "", tituloInforme:datos.tituloInforme||"", direccion: datos.direccion || "", fecha: datos.fecha || "",
       equipo: datos.equipo || "", tecnico: datos.tecnico || "", origenTelegram: datos.origenTelegram || false,
       telegramOperario: datos.telegramOperario || "", resultado: datos.resultado || "", createdAt: datos.createdAt,
       partesElectrizar: partes.length, cantidadElementos: datos.equipos?.length || datos.elementos?.length || 0,

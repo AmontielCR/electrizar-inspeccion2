@@ -214,7 +214,7 @@ const generatePDF=(inf:any)=>{
   const hdr=pdfHdr(nElLabel);
 
   // Portada
-  const portada=`<div class="pg cover"><img class="cover-logo" src="${LOGO_ICON_URI}"/><div class="cover-band">CONSTRUCTORA<br/>ELECTROMECÁNICA</div><div class="cover-title">${esc(inf.codigo)}-Informe de ${esc(inf.tituloCorto)}</div><div class="cover-sub">${esc(inf.descripcion)}</div><div class="cover-line"></div>${pdfFtr(1,totalPags)}</div>`;
+  const portada=`<div class="pg cover"><img class="cover-logo" src="${LOGO_ICON_URI}"/><div class="cover-band">CONSTRUCTORA<br/>ELECTROMECÁNICA</div><div class="cover-title">${esc(inf.codigo)}-Informe de ${esc(inf.tituloInforme||inf.tituloCorto)}</div><div class="cover-sub">${esc(inf.descripcion)}</div><div class="cover-line"></div>${pdfFtr(1,totalPags)}</div>`;
 
   // Hojas de elementos
   let prevGrupo="";
@@ -286,7 +286,7 @@ const generateWord=async(inf:any)=>{
   // Portada
   const cover=[
     wp([wImg(LOGO_ICON_B64,"jpeg",54,54)],{spacing:{after:220}}),
-    wp([wt(`${inf.codigo}-Informe de ${inf.tituloCorto}`,{bold:true,size:44})],{spacing:{after:160}}),
+    wp([wt(`${inf.codigo}-Informe de ${inf.tituloInforme||inf.tituloCorto}`,{bold:true,size:44})],{spacing:{after:160}}),
     wp([wt(inf.descripcion,{size:21,color:"555555"})],{spacing:{after:360},border:{bottom:{style:BorderStyle.SINGLE,size:8,color:"111111"}}}),
     wpb(),
   ];
@@ -722,7 +722,7 @@ export function InformeView({informe,onUpdate,onBack,guardado,cuenta}:any){
   return(<div className="screen-report min-h-screen" style={{background:"#f8f9fb"}}>
     <header style={{background:DARK}} className="px-4 py-4 sticky top-0 z-10 shadow-lg"><div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-2 mb-2"><button aria-label="Volver" onClick={onBack} className="text-white/60 hover:text-white text-xl">←</button><Logo sm white/><span className="ml-auto text-[10px] font-bold px-2 py-1 rounded-lg" style={{background:P.color+"30",color:P.color}}><Icono className="ui-icon" nombre={esIncendio?"incendio":esGenerador?"generador":"agua"}/> {P.nombre.toUpperCase()}</span></div>
-      <div className="ml-1"><div className="font-mono text-[11px] text-white/40">{informe.codigo}</div><div className="font-bold text-white text-sm">{esGenerador || esIncendio ? informe.tituloCorto : `Informe #${informe.numInforme} · ${mesAnioTexto(informe.fechaFin)}`}</div></div>
+      <div className="ml-1"><div className="font-mono text-[11px] text-white/40">{informe.codigo}</div><div className="font-bold text-white text-sm">{informe.tituloInforme || (esGenerador || esIncendio ? informe.tituloCorto : `Informe #${informe.numInforme} · ${mesAnioTexto(informe.fechaFin)}`)}</div></div>
     </div></header>
 
     <div className="bg-white border-b border-gray-100 px-4 py-2"><div className="max-w-2xl mx-auto flex gap-5 text-xs flex-wrap"><span className="text-gray-500"><Icono className="ui-icon" nombre="camara"/> <b className="text-gray-700">{conFoto}/{els.length}</b> con foto</span><span className="text-gray-500"><Icono className="ui-icon" nombre="calendario"/> {esGenerador || esIncendio ? informe.fecha : informe.periodo}</span>{esGenerador && <span className="font-semibold text-teal-900">{planesGenerador[informe.plan as PlanGenerador]}</span>}{!!requeridas.length && <span className="font-semibold text-gray-700">{requeridas.length-pendientes}/{requeridas.length} tareas registradas</span>}</div></div>
