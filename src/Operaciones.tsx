@@ -1,3 +1,4 @@
+import { agruparEvidencias, escaparMultilinea } from "./maquetacionInforme";
 import { aplicarEdicion } from "./colaboracion";
 import { sistemasIncendio, firmasIncendioCompletas, descripcionIncendio, CierreIncendio } from "./Incendio";
 import { Boton, Tarjeta, Campo, TituloPagina } from "./Interfaz";
@@ -13,10 +14,11 @@ import {
   ImageRun, Header, Footer, AlignmentType, PageOrientation,
   BorderStyle, WidthType, VerticalAlign, PageBreak,
 } from "docx";
-import { LOGO_ICON_B64, LOGO_FULL_B64 } from "./logos";
+import { LOGO_ICON_B64, LOGO_PORTADA_B64 } from "./logos";
 
 const LOGO_ICON_URI = simboloURI;
 const LOGO_FULL_URI = marcaURI;
+const LOGO_OFICIAL_URI = `data:image/jpeg;base64,${LOGO_PORTADA_B64}`;
 
 const Y    = "#F5A800";
 const DARK = "#111827";
@@ -175,16 +177,24 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#222;background:
 .ftr-logo{height:34px;width:auto;display:block;}
 .ftr-pg{font-size:8pt;color:#9ca3af;}
 .cover{padding:16mm 16mm 10mm 16mm;}
-.cover-logo{height:48px;width:48px;object-fit:contain;display:block;margin-bottom:26px;}
+.cover-logo{width:340px;max-width:80%;height:auto;object-fit:contain;display:block;margin:0 auto 30px;border-radius:0;background:#fff;}
+.cover-code{font-size:11pt;font-weight:700;letter-spacing:.08em;color:#775400;margin-bottom:12px;}
 .cover-band{background:${Y};border-radius:8px;height:150px;display:flex;align-items:center;justify-content:center;margin-bottom:30px;color:#fff;font-weight:900;font-size:17pt;letter-spacing:1px;text-align:center;line-height:1.3;}
-.cover-title{font-size:23pt;font-weight:900;color:#111;line-height:1.28;margin-bottom:12px;}
+.cover>.ftr{margin-top:auto;}.cover-title{font-size:23pt;font-weight:900;color:#111;line-height:1.28;margin-bottom:12px;}
 .cover-sub{font-size:10.5pt;color:#555;line-height:1.6;max-width:78%;}
 .cover-line{border-top:2px solid #111;margin-top:24px;}
 .grp{font-size:15pt;font-weight:900;color:${DARK};margin-bottom:10px;}
 .el-row{display:flex;gap:20px;align-items:flex-start;}
+.evidencias{display:flex;flex-direction:column;gap:22px;}
+.evidencia{break-inside:avoid;page-break-inside:avoid;padding-bottom:16px;border-bottom:1px solid #e5e7eb;}
+.evidencia:last-child{border-bottom:0;padding-bottom:0;}
+.sin-imagen{display:block;}
+.sin-foto{font-size:8pt;color:#777;margin-bottom:6px;}
+.el-text,.el-title,.el-desc,.li{overflow-wrap:anywhere;word-break:normal;}
+.el-desc,.li{white-space:normal;overflow:visible;height:auto;max-height:none;}
 .el-imgs{display:flex;gap:8px;flex-shrink:0;}
-.el-photo{width:230px;height:250px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;}
-.el-photo.dual{width:150px;height:250px;}
+.el-photo{width:195px;height:210px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;}
+.el-photo.dual{width:145px;height:210px;}
 .el-empty{width:230px;height:250px;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:34pt;color:#d1d5db;}
 .el-cap{font-size:8pt;color:#888;text-align:center;margin-top:3px;font-weight:700;letter-spacing:1px;}
 .el-num{font-size:8pt;color:#bbb;margin-top:5px;}
@@ -202,7 +212,7 @@ const pdfFtr=(p:number,t:number)=>`<div class="ftr"><img class="ftr-logo" src="$
 const openPDF = abrirVistaPDF;
 
 const esc=(s:string)=>(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-const nl2br=(s:string)=>esc(s).replace(/\n/g,"<br/>");
+const nl2br=escaparMultilinea;
 
 const generatePDF=(inf:any)=>{
   if(inf.tipo==="incendio"&&!firmasIncendioCompletas(inf.firmasIncendio))throw new Error("Se requieren las firmas del técnico y del cliente para generar el documento.");
@@ -210,15 +220,17 @@ const generatePDF=(inf:any)=>{
   const elementos=elementosExportables(inf);
   const els=paginasEvidencias(elementos);
   const nElLabel=P.agrupado?`${elementos.length} (${new Set(elementos.map((e:any)=>e.grupo)).size} grupos)`:`${elementos.length}`;
-  const totalPags=els.length+2+(inf.tipo==="incendio"?1:0);
+  const hojas=agruparEvidencias(els,detalleElemento);
+  const totalPags=hojas.length+2+(inf.tipo==="incendio"?1:0);
   const hdr=pdfHdr(nElLabel);
 
   // Portada
-  const portada=`<div class="pg cover"><img class="cover-logo" src="${LOGO_ICON_URI}"/><div class="cover-band">CONSTRUCTORA<br/>ELECTROMECÁNICA</div><div class="cover-title">${esc(inf.codigo)}-Informe de ${esc(inf.tituloInforme||inf.tituloCorto)}</div><div class="cover-sub">${esc(inf.descripcion)}</div><div class="cover-line"></div>${pdfFtr(1,totalPags)}</div>`;
+  const portada=`<div class="pg cover"><img class="cover-logo" src="${LOGO_OFICIAL_URI}" alt="Electrizar Electromecánica"/><div class="cover-code">${esc(inf.codigo)}</div><div class="cover-title">${esc(inf.tituloInforme||"Informe de "+inf.tituloCorto)}</div><div class="cover-sub">${esc(inf.descripcion)}</div><div class="cover-line"></div>${pdfFtr(1,totalPags)}</div>`;
 
   // Hojas de elementos
   let prevGrupo="";
-  const elPags=els.map((el:any,i:number)=>{
+  const elPags=hojas.map((hoja,pagina)=>{
+    const contenido=hoja.map(({elemento:el,indice:i})=>{
     const grupoH=(el.grupo && el.grupo!==prevGrupo)?`<div class="grp">${esc(el.grupo)}</div>`:"";
     prevGrupo=el.grupo||prevGrupo;
     // Fotos
@@ -229,7 +241,7 @@ const generatePDF=(inf:any)=>{
     } else if(fotos.length===1){
       imgs=`<div><img class="el-photo" src="${esc(fotos[0].url)}"/><div class="el-cap">${esc(pieFoto(fotos[0],0,1))}</div><div class="el-num">(${i+1})</div></div>`;
     } else {
-      imgs=`<div><div class="el-empty">📷</div><div class="el-num">(${i+1})</div></div>`;
+      imgs=`<div class="sin-foto"><span>Elemento ${i+1} · Sin fotografía</span></div>`;
     }
     // Texto
     let txt="";
@@ -240,7 +252,9 @@ const generatePDF=(inf:any)=>{
     } else {
       txt=`<div class="el-title"><b>Título:</b> ${esc(el.titulo)}</div><div class="el-desc">${nl2br(detalleElemento(el))}</div>`;
     }
-    return `<div class="pg"><div class="body">${hdr}${grupoH}<div class="el-row">${imgs}<div class="el-text">${txt}</div></div></div>${pdfFtr(i+2,totalPags)}</div>`;
+    return `<article class="evidencia">${grupoH}<div class="el-row ${fotos.length?"":"sin-imagen"}">${imgs}<div class="el-text">${txt}</div></div></article>`;
+    }).join("");
+    return `<div class="pg"><div class="body">${hdr}<div class="evidencias">${contenido}</div></div>${pdfFtr(pagina+2,totalPags)}</div>`;
   }).join("");
 
   // Resumen General
@@ -248,7 +262,7 @@ const generatePDF=(inf:any)=>{
   const resList=resItems.map((r:string,i:number)=>`<div class="li" style="margin-bottom:6px;">${i+1}- ${nl2br(r)}</div>`).join("")||`<div class="li" style="color:#aaa">Sin acciones registradas.</div>`;
   const recomendaciones=recomendacionesGenerador(inf);
   const recomendacionesHTML=recomendaciones.length ? `<div class="sec">Recomendaciones</div>${recomendaciones.map(r=>`<div class="li">- ${nl2br(r)}</div>`).join("")}` : "";
-  const resumen=`<div class="pg"><div class="body">${hdr}<div class="res-h">Resumen General</div><div class="sec" style="margin-top:0;">Acciones Realizadas:</div>${resList}${recomendacionesHTML}</div>${pdfFtr(els.length+2,totalPags)}</div>`;
+  const resumen=`<div class="pg"><div class="body">${hdr}<div class="res-h">Resumen General</div><div class="sec" style="margin-top:0;">Acciones Realizadas:</div>${resList}${recomendacionesHTML}</div>${pdfFtr(hojas.length+2,totalPags)}</div>`;
 
   const cierre=inf.tipo==="incendio"?`<div class="pg"><div class="body">${hdr}<div class="res-h">Cierre del mantenimiento</div><div style="display:flex;gap:28px;margin-top:24px">${[ ["Técnico responsable",inf.firmasIncendio.tecnico],["Representante del cliente",inf.firmasIncendio.cliente] ].map(([etiqueta,persona]:any)=>`<div style="flex:1;min-width:0;border:1px solid #dce3ec;border-radius:10px;padding:20px"><h3 style="font-size:12pt;margin-bottom:14px">${etiqueta}</h3><div style="font-size:10pt;line-height:1.8"><b>Nombre:</b> ${esc(persona.nombre)}<br/><b>Fecha:</b> ${esc(persona.fecha.split("-").reverse().join("/"))}</div><img alt="Firma de ${etiqueta}" src="${esc(persona.firmaUrl)}" style="display:block;width:260px;max-width:100%;height:123px;object-fit:contain;margin-top:18px"/><p style="font-size:9pt;color:#555;margin-top:8px">Firma</p></div>`).join("")}</div></div>${pdfFtr(totalPags,totalPags)}</div>`:"";
   openPDF(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/><title>${esc(inf.codigo)}</title><style>${PDF_CSS}</style></head><body>${portada}${elPags}${resumen}${cierre}</body></html>`);
@@ -271,7 +285,7 @@ const wHdr=(nEl:string)=>new Header({children:[wTbl([new TableRow({children:[
   wCell([wp([wt("Dirección: ",{bold:true,size:14}),wt(CO.dir,{size:14,color:"555555"})]),wp([wt("N.º de elementos: ",{bold:true,size:14}),wt(nEl,{size:14,color:"555555"})])],CW-6840,{borders:{top:NONE_B,left:NONE_B,right:NONE_B,bottom:{style:BorderStyle.SINGLE,size:4,color:"E5E7EB"}}}),
 ]})],[640,6200,CW-6840])]});
 const wFtr=()=>new Footer({children:[wTbl([new TableRow({children:[
-  wCell([wp([wImg(LOGO_FULL_B64,"png",110,32)])],2400),
+  wCell([wp([wImg(LOGO_PORTADA_B64,"jpeg",110,39)])],2400),
   wCell([wp([wt("Electrizar Electromecánica | Informe generado electrónicamente",{size:13,color:"9CA3AF"})],{alignment:AlignmentType.RIGHT})],CW-2400),
 ]})],[2400,CW-2400])]});
 const wDownload=async(docx:any,codigo:string)=>{const blob=await Packer.toBlob(docx);const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${codigo}.docx`;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);};
@@ -285,8 +299,8 @@ const generateWord=async(inf:any)=>{
 
   // Portada
   const cover=[
-    wp([wImg(LOGO_ICON_B64,"jpeg",54,54)],{spacing:{after:220}}),
-    wp([wt(`${inf.codigo}-Informe de ${inf.tituloInforme||inf.tituloCorto}`,{bold:true,size:44})],{spacing:{after:160}}),
+    wp([wImg(LOGO_PORTADA_B64,"jpeg",280,100)],{alignment:AlignmentType.CENTER,spacing:{after:220}}),
+    wp([wt(`${inf.codigo} — ${inf.tituloInforme||"Informe de "+inf.tituloCorto}`,{bold:true,size:44})],{spacing:{after:160}}),
     wp([wt(inf.descripcion,{size:21,color:"555555"})],{spacing:{after:360},border:{bottom:{style:BorderStyle.SINGLE,size:8,color:"111111"}}}),
     wpb(),
   ];
