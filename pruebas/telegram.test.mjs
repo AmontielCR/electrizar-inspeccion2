@@ -11,6 +11,7 @@ function confirmar(sesion) {
 }
 function iniciar(plan = 'Energia') {
   let { sesion } = entrada(null, '/nuevo');
+  sesion = entrada(sesion,'Generadores').sesion;
   for (const valor of ['INF-PRUEBA', 'Orokay II', 'C-01', '/omitir', '/omitir', '/omitir', '2026-11-11', plan]) {
     sesion = confirmar(entrada(sesion, valor).sesion);
   }
@@ -65,11 +66,12 @@ test('las fotos quedan en su tarea, el modo final se confirma y el informe cierr
   sesion = confirmar(entrada(sesion, 'Entregar borrador').sesion);
   assert.equal(sesion.etapa, 'cerrado');
   assert(sesion.informe.elementos.at(-1).acc.includes('Programar sustitución del medidor'));
-  assert.equal(entrada(sesion, '/nuevo').sesion.etapa, 'datos');
+  assert.equal(entrada(sesion, '/nuevo').sesion.etapa, 'servicio');
 });
 
 test('los botones guían los datos y Volver permite corregirlos sin reiniciar la visita', () => {
   let r = entrada(null,'Nuevo informe');
+  r = entrada(r.sesion,'Generadores');
   assert.match(r.texto,/Paso 1 de 8/);
   let s = entrada(r.sesion,'INF-ORIGINAL').sesion;
   assert.match(pregunta(s),/BeeLiv/);
@@ -165,7 +167,8 @@ test('una observación agregada desde el resumen queda en hallazgos y exige una 
 
 test('la visita no se reinicia por accidente y las fechas imposibles se rechazan', () => {
   let {sesion} = entrada(null, '/nuevo');
+  sesion = entrada(sesion,'Generadores').sesion;
   for (const valor of ['INF-X', 'Sede', 'Equipo', '/omitir', '/omitir', '/omitir']) sesion = entrada(sesion, valor).sesion;
   assert.equal(entrada(sesion, '2026-02-31').sesion.campo, sesion.campo);
-  assert.equal(entrada(sesion, '/nuevo').sesion.campo, sesion.campo);
+  assert.equal(entrada(sesion, '/nuevo').sesion.pausada.campo, sesion.campo);
 });

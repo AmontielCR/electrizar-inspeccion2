@@ -53,5 +53,5 @@ test('los reintentos del mismo evento conservan el ID y la sesión remota evita 
   assert(!JSON.stringify(resumida).includes('imagen-grande'));
   const operario={uid:'operario',nombre:'Nombre'};
   const nueva=avanzar(null,'/nuevo',null,operario,'bot',identificadorEvento(100)).sesion;
-  assert.equal(nueva.etapa,'datos');
+  assert.equal(nueva.etapa,'servicio');
 });

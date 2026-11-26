@@ -171,7 +171,7 @@ const generatePDFAC=(informe:any)=>{
   const eqPags=equipos.map((eq:any,i:number)=>{
     const foto=(key:string,label:string,icon:string)=>{const src=eq.fotos?.[key];return`<div class="foto-cell"><div class="foto-lbl">${icon} ${label}</div>${src?`<img class="foto-img" src="${src}" alt="${label}"/>`:`<div class="foto-empty">📷</div>`}</div>`;};
     const acHTML=(eq.acciones||[]).map((a:string)=>`<div class="item-line">- ${a}</div>`).join("")||`<div class="item-line" style="color:#aaa">Sin acciones.</div>`;
-    return`<div class="pg">${hdr}<div class="eq-title-row"><div class="eq-title">(${i+1}) ${eq.nombre}</div><span class="${eq.resultado==="Aprobado"?"badge-ap":"badge-no"}">${eq.resultado||"Pendiente"}</span>${eq.ubicacion?`<span style="font-size:8pt;color:#888">📍 ${eq.ubicacion}</span>`:""}</div><div class="foto-grid">${foto("evaporadora","Limpieza de evaporadora","❄️")}${foto("condensadora","Limpieza de condensadora","💧")}${foto("tuberia","Estado de tubería y aislante","🔧")}${foto("presiones","Nivel de presión de refrigerante","🔵")}</div>${eq.resultado==="No Aprobado"?`<div class="sec-lbl">Acciones realizadas / requeridas:</div>${acHTML}`:""}${eq.observaciones?`<div class="sec-lbl">Observaciones:</div><div class="item-line">${eq.observaciones}</div>`:""} ${pdfFtr(i+3,totalPags)}</div>`;
+    return`<div class="pg">${hdr}<div class="eq-title-row"><div class="eq-title">(${i+1}) ${eq.nombre}</div><span class="${eq.resultado==="Aprobado"?"badge-ap":"badge-no"}">${eq.resultado||"Pendiente"}</span>${eq.ubicacion?`<span style="font-size:8pt;color:#888">📍 ${eq.ubicacion}</span>`:""}</div><div class="foto-grid">${foto("evaporadora","Limpieza de evaporadora","❄️")}${foto("condensadora","Limpieza de condensadora","💧")}${foto("tuberia","Estado de tubería y aislante","🔧")}${foto("presiones","Nivel de presión de refrigerante","🔵")}</div>${eq.acciones?.length?`<div class="sec-lbl">Acciones realizadas / requeridas:</div>${acHTML}`:""}${eq.observaciones?`<div class="sec-lbl">Observaciones:</div><div class="item-line">${eq.observaciones}</div>`:""} ${pdfFtr(i+3,totalPags)}</div>`;
   }).join("");
   const recepcion=informe.recepcionCliente;
   const recepcionPagina=`<div class="pg">${hdr}<h2 style="font-size:18pt;margin:18px 0 12px">Recepción por parte del cliente</h2><p style="font-size:10pt;color:#555;margin-bottom:24px">Responsable que recibe el informe de mantenimiento de aires acondicionados.</p><div style="font-size:11pt;line-height:2"><b>Nombre del responsable del cliente:</b> ${recepcion?.nombre||"Pendiente de registrar"}<br/><b>Fecha de la firma:</b> ${recepcion?.fecha?fmtFecha(recepcion.fecha):"Pendiente de registrar"}</div><div style="margin-top:28px;width:300px;height:145px;border:1px solid #d1d5db;border-radius:8px;display:flex;align-items:center;justify-content:center">${recepcion?.firmaUrl?`<img src="${recepcion.firmaUrl}" alt="Firma del responsable del cliente" style="max-width:280px;max-height:125px;object-fit:contain"/>`:'<span style="font-size:9pt;color:#666">Firma pendiente de registrar</span>'}</div><p style="margin-top:10px;font-size:9pt;color:#555">Firma del responsable del cliente</p>${pdfFtr(totalPags,totalPags)}</div>`;
@@ -209,6 +209,7 @@ const generateWordElectrico=async(informe:any)=>{
     const hh=(el.hallazgos||[]).map((h:string)=>wp([wt(`• ${h}`,{size:18,color:"444444"})],{spacing:{before:60,after:0}}));
     const aa=(el.acciones||[]).map((a:string)=>wp([wt(`• ${a}`,{size:18,color:"444444"})],{spacing:{before:60,after:0}}));
     elPages.push(wTbl([new TableRow({children:[wCell(pB64?[wp([wImg(pB64,itype(el.url),210,210,el.titulo)]),wp([wt(`(${el.num})`,{size:14,color:"BBBBBB"})])]:[wp([wt("Sin foto",{size:18,color:"CCCCCC"})])],3300),wCell([wp([wt(`Título: ${el.titulo}`,{bold:true,size:22}),wBadge(el.prioridad)],{spacing:{before:0,after:160}}),wp([wt("Hallazgos:",{bold:true,size:20,color:"374151"})],{spacing:{before:0,after:60}}),...(hh.length?hh:[wp([wt("Sin hallazgos.",{size:18,color:"AAAAAA"})])]),wsp(8),wp([wt("Acciones requeridas:",{bold:true,size:20,color:"374151"})],{spacing:{before:0,after:60}}),...(aa.length?aa:[wp([wt("Sin acciones.",{size:18,color:"AAAAAA"})])])],CW-3300)]})],[3300,CW-3300]));
+    for(const nota of el.notas||[])elPages.push(wp([wt(nota,{size:18,color:"555555"})],{spacing:{before:80,after:0}}));
     elPages.push(wpb());
   }
   const rC=informe.resultado==="Aprobada"?"16A34A":informe.resultado==="Condicionada"?"D97706":"DC2626";
@@ -237,7 +238,7 @@ const generateWordAC=async(informe:any)=>{
     const colW=Math.floor(CW/4);
     const photoCols=AC_KEYS.map(f=>{const src=eq.fotos?.[f.key];return wCell([wp([wt(`${f.icon} ${f.label}`,{bold:true,size:16,color:"555555"})],{spacing:{before:0,after:80}}),src?wp([wImg(b64s(src),itype(src),192,155,f.label)]):wp([wt("Sin foto",{size:16,color:"CCCCCC"})])],colW);});
     eqPages.push(wTbl([new TableRow({children:photoCols})],[colW,colW,colW,CW-colW*3]));
-    if(eq.resultado==="No Aprobado"&&eq.acciones?.length){eqPages.push(wsp(8));eqPages.push(wp([wt("Acciones realizadas / requeridas:",{bold:true,size:20,color:"374151"})],{spacing:{before:0,after:80}}));for(const a of eq.acciones)eqPages.push(wp([wt(`• ${a}`,{size:18,color:"444444"})],{spacing:{before:40,after:0}}));}
+    if(eq.acciones?.length){eqPages.push(wsp(8));eqPages.push(wp([wt("Acciones realizadas / requeridas:",{bold:true,size:20,color:"374151"})],{spacing:{before:0,after:80}}));for(const a of eq.acciones)eqPages.push(wp([wt(`• ${a}`,{size:18,color:"444444"})],{spacing:{before:40,after:0}}));}
     if(eq.observaciones){eqPages.push(wsp(8));eqPages.push(wp([wt("Observaciones:",{bold:true,size:20,color:"374151"})],{spacing:{before:0,after:80}}));eqPages.push(wp([wt(eq.observaciones,{size:18,color:"444444"})],{spacing:{before:0,after:0}}));}
     if(idx<equipos.length-1)eqPages.push(wpb());
   }
@@ -904,7 +905,7 @@ export default function App() {
       }
     } catch (error: any) {
       if (cuentaActual.current === cuenta) {
-        const motivo = error?.code ? "No se pudo sincronizar. Revisa la conexión o los permisos." : error?.message || "No se pudo sincronizar.";
+        const motivo = error?.code && !["codigo-duplicado","informe-modificado","informe-eliminado"].includes(error.code) ? "No se pudo sincronizar. Revisa la conexión o los permisos." : error?.message || "No se pudo sincronizar.";
         estado(id, motivo + " Tu copia sigue en este dispositivo.", true);
       }
     } finally {

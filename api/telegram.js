@@ -1,8 +1,11 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { doc, getDoc, runTransaction, setDoc } from 'firebase/firestore';
 import { conectarFirebase } from '../bot/firebase.mjs';
-import { avanzar, teclado } from '../bot/conversacion.mjs';
+import { avanzar, teclado, iniciaNuevaVisita, pregunta } from '../bot/conversacion.mjs';
 import { guardarRemoto, leerRemoto } from '../src/almacenRemoto.ts';
+
+import { navegarInformes, procesarCodigo, sugerenciaInicial, pideCodigo } from '../bot/catalogo.mjs';
+import { sesionDesdeInforme } from '../bot/gestion.mjs';
 
 let conexion;
 async function conectar() {
@@ -47,60 +50,79 @@ async function fotoDeTelegram(message) {
 }
 
 async function completar(db, registro, documento, mensaje, operario, botUid) {
-  let respuesta;
-  let propuesto;
-  let botones = documento.pendiente?.botones ? JSON.parse(documento.pendiente.botones) : undefined;
-  const pendiente = documento.pendiente;
-  let sesion = documento.estado ? structuredClone(documento.estado) : null;
-  if (sesion?.informeId && !(sesion.etapa === 'cerrado' && mensaje.text?.trim() === '/nuevo')) {
-    const informe = await leerRemoto(db, sesion.informeId);
-    if (pendiente.propuesta?.revision === informe.versionRemota) {
-      propuesto = pendiente.propuesta;
-      respuesta = pendiente.respuesta;
-    } else {
-      if (informe.versionRemota !== sesion.base) {
-        await telegram('sendMessage', { chat_id: mensaje.chat.id,
-          text: 'El informe cambió en Electrizar. Pide al ingeniero que revise el borrador y este mensaje en el chat. Para otra visita puedes usar /nuevo.' });
-        await setDoc(registro,{ estado:{...documento.estado,etapa:'cerrado',base:informe.versionRemota,pendiente:false},
-          ultimo:pendiente.update,pendiente:null,conflicto:{update:pendiente.update,texto:mensaje.text || '',fecha:Date.now()} },{merge:true});
-        return;
-      }
-      sesion.informe = informe;
-    }
-  } else if (pendiente.propuesta?.informeId && pendiente.propuesta?.pendiente) {
-    // Puede haberse escrito el informe mientras se interrumpía la confirmación del primer mensaje.
+  const pendiente=documento.pendiente;
+  let sesion=documento.estado ? structuredClone(documento.estado) : null;
+  let propuesto, respuesta, botones=pendiente.botones ? JSON.parse(pendiente.botones) : undefined;
+  const uuid=identificadorEvento(pendiente.update);
+  // Un reintento después de guardar nunca repite la edición ni añade otra foto.
+  if(pendiente.propuesta?.pendiente && pendiente.propuesta.informeId) {
     try {
-      const informe = await leerRemoto(db, pendiente.propuesta.informeId);
-      if (informe.versionRemota === pendiente.propuesta.revision) {
-        propuesto = pendiente.propuesta;
-        respuesta = pendiente.respuesta;
+      const publicado=await leerRemoto(db,pendiente.propuesta.informeId);
+      if(publicado.versionRemota===pendiente.propuesta.revision || publicado.revisionesAplicadas?.includes(pendiente.propuesta.revision)) {
+        propuesto=pendiente.propuesta;respuesta=pendiente.respuesta;
       }
-    } catch (error) {
-      if (error.code && error.code !== 'not-found') throw error;
+    } catch(error) { if(error.code && error.code!=='not-found')throw error; }
+  }
+  if(!propuesto) {
+    let resultado=await navegarInformes(db,sesion,mensaje.text||'');
+    if(!resultado && sesion?.informeId && !iniciaNuevaVisita(mensaje.text||'')) {
+      let actual;
+      try {actual=await leerRemoto(db,sesion.informeId);}
+      catch(error) {
+        if(error.code!=='not-found')throw error;
+        resultado={sesion:{etapa:'inicio',base:'',pendiente:false},texto:'El informe fue eliminado o ya no está disponible. Tu último mensaje no se aplicó. Pulsa Mis informes para continuar con otro.'};
+      }
+      if(actual) {
+      if(actual.versionRemota!==sesion.base) {
+        resultado={sesion:sesionDesdeInforme(actual),texto:'El informe cambió en otro dispositivo. Cargué la versión actual; este último mensaje no se aplicó. Revisa el informe y repite el cambio si corresponde.'};
+      } else sesion.informe=actual;
+      }
+    }
+    if(!resultado) {
+      const codigo=await procesarCodigo(db,sesion,mensaje.text||'',botUid,uuid);
+      if(codigo?.valor){sesion=codigo.sesion;mensaje={...mensaje,text:codigo.valor};}
+      else if(codigo)resultado=codigo;
+    }
+    if(!resultado) {
+      let foto;
+      if(mensaje.photo && ['fotos','fotoEditar'].includes(sesion?.etapa) && !sesion.pendiente)foto=await fotoDeTelegram(mensaje);
+      resultado=avanzar(sesion,mensaje.text||'',foto,operario,botUid,uuid);
+    }
+    resultado.sesion=await sugerenciaInicial(db,resultado.sesion);
+    if(!resultado.texto)resultado.texto=pregunta(resultado.sesion);
+    else if(pideCodigo(resultado.sesion)&&resultado.sesion.codigoSugerido)resultado.texto+='\nConsecutivo sugerido: '+resultado.sesion.codigoSugerido+'.';
+    const almacenarPropuesta=async()=>{
+      propuesto=resumirSesion(resultado.sesion);respuesta=resultado.texto;
+      botones=teclado(resultado.sesion?{...resultado.sesion,pendiente:false}:null);
+      await setDoc(registro,{pendiente:{...pendiente,propuesta:propuesto,respuesta,botones:JSON.stringify(botones)}},{mergeFields:['pendiente']});
+    };
+    await almacenarPropuesta();
+    if(resultado.sesion?.pendiente) {
+      const s=resultado.sesion;
+      try {
+        await guardarRemoto(db,{id:s.informe.id,informe:{...s.informe,ultimaEdicionTelegram:{uid:operario.uid,nombre:operario.nombre}},revision:s.revision,base:s.base,pendiente:true},{exigirBase:true});
+      } catch(error) {
+        if(error.code==='codigo-duplicado') {
+          resultado={sesion:sesion || s,texto:error.message+' El cambio no se guardó. Corrige el código antes de continuar.'};
+          resultado.sesion.pendiente=false;
+        } else if(error.code==='informe-modificado') {
+          resultado={sesion:sesionDesdeInforme(await leerRemoto(db,s.informe.id)),texto:'Otro dispositivo guardó cambios antes que tú. Tu último cambio no se aplicó. Cargué la versión actual; revisa y repite la edición.'};
+        } else if(error.message?.includes('supera el límite')) {
+          resultado={sesion,texto:'Este último cambio no se guardó porque supera el tamaño admitido del informe. El informe anterior se conserva. Puedes entregar ese borrador e iniciar otro para continuar con más evidencias. La foto enviada sigue en este chat.'};
+        } else if(error.code==='informe-eliminado') {
+          resultado={sesion:{etapa:'inicio',base:'',pendiente:false},texto:'El informe fue eliminado antes de guardar tu cambio. No se volvió a crear. Pulsa Mis informes para buscar otro.'};
+        } else throw error;
+        await almacenarPropuesta();
+      }
     }
   }
-  if (!propuesto) {
-    let foto;
-    if (mensaje.photo && sesion?.etapa === 'fotos' && !sesion.pendiente) foto = await fotoDeTelegram(mensaje);
-    const resultado = avanzar(sesion, mensaje.text || '', foto, operario, botUid, identificadorEvento(pendiente.update));
-    propuesto = resumirSesion(resultado.sesion);
-    respuesta = resultado.texto;
-    botones = teclado(resultado.sesion ? {...resultado.sesion,pendiente:false} : null);
-    // Firestore no admite matrices de matrices; el teclado de Telegram se conserva como JSON.
-    await setDoc(registro, { pendiente: { ...pendiente, propuesta: propuesto, respuesta, botones:JSON.stringify(botones) } }, { merge: true });
-    if (resultado.sesion?.pendiente) {
-      const s = resultado.sesion;
-      await guardarRemoto(db, { id:s.informe.id, informe:s.informe, revision:s.revision, base:s.base, pendiente:true });
-    }
+  if(propuesto?.pendiente) {
+    propuesto.base=propuesto.revision;propuesto.pendiente=false;
+    respuesta='Guardado en Electrizar.\n'+respuesta;
   }
-  if (propuesto?.pendiente) {
-    propuesto.base = propuesto.revision;
-    propuesto.pendiente = false;
-    respuesta = 'Guardado en Electrizar.\n' + respuesta;
-  }
-  if (propuesto?.etapa === 'cerrado' && process.env.APP_URL) respuesta += '\n' + process.env.APP_URL.trim() + '\nBusca el código ' + propuesto.datos.codigo + ' en el historial.';
-  await telegram('sendMessage', { chat_id: mensaje.chat.id, text: respuesta, reply_markup: botones || teclado(propuesto) });
-  await setDoc(registro, { estado:propuesto, ultimo:pendiente.update, pendiente:null }, { merge:true });
+  if(propuesto?.etapa==='cerrado'&&process.env.APP_URL)respuesta+='\n'+process.env.APP_URL.trim()+'\nPuedes volver a este informe con /abrir '+propuesto.datos.codigo+'.';
+  await telegram('sendMessage',{chat_id:mensaje.chat.id,text:respuesta,reply_markup:botones||teclado(propuesto)});
+  await setDoc(registro,{estado:propuesto,ultimo:pendiente.update,pendiente:null},{mergeFields:['estado','ultimo','pendiente']});
 }
 
 export default async function handler(req, res) {

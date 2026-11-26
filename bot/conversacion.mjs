@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { crearElementos, tareaCompleta } from '../src/checklists.ts';
 import { tareasGenerador, planesGenerador } from '../src/plantillaGeneradores.ts';
+import { avanzarServicio, tecladoServicio, preguntaServicio, nuevaSesionServicio } from './servicios.mjs';
+import { esGestion, avanzarGestion, preguntaGestion, tecladoGestion, sesionDesdeInforme } from './gestion.mjs';
+import { esCatalogo, tecladoCatalogo, pideCodigo } from './catalogo.mjs';
 
 const campos = [
   ['codigo', 'Código del informe', 'Escribe el código asignado a esta visita. Ejemplo: INF-26-160.'],
@@ -17,7 +20,7 @@ const actual = sesion => sesion.informe.elementos[sesion.indice];
 const tareas = sesion => sesion.informe.elementos.filter(el => el.requerido);
 const alias = { 'nuevo informe':'/nuevo', continuar:'/estado', 'ver avance':'/avance', ayuda:'/ayuda', volver:'/volver', omitir:'/omitir', siguiente:'/siguiente', 'revisar informe':'/resumen', 'corregir datos':'/corregir', 'revisar actividades':'/actividades', 'agregar observacion':'/observacion', 'entregar borrador':'/finalizar', 'sin hallazgos':'/ninguno', reintentar:'/reintentar', 'plan energia':'energia', 'plan inspeccion':'inspeccion' };
 
-export function teclado(sesion) {
+function tecladoGenerador(sesion) {
   let filas;
   if (!sesion || sesion.etapa === 'cerrado') filas = [['Nuevo informe', 'Ayuda']];
   else if (sesion.pendiente) filas = [['Reintentar', 'Ayuda']];
@@ -41,7 +44,7 @@ function resumen(sesion) {
   return `Revisión del borrador · ${d.codigo}\nSede: ${d.direccion}\nEquipo: ${d.equipo} · ${d.marca || 'Marca sin indicar'} · ${d.modelo || 'Modelo sin indicar'}\nPotencia: ${d.potencia || 'Sin indicar'}\nFecha: ${d.fecha} · ${planesGenerador[d.plan]}\n\nActividades registradas: ${lista.length - pendientes}/${lista.length}\nFotos: ${sesion.informe.elementos.reduce((n,el) => n + el.fotos.length, 0)}\nActividades sin foto: ${sinFotos}\nHallazgos: ${sesion.informe.elementos.flatMap(el => el.obs).filter(v => v.trim()).length}\n\n${pendientes ? `Hay ${pendientes} actividades pendientes. Puedes revisarlas o entregar el borrador con esos pendientes.\n` : ''}${sinFotos ? 'Revisa si necesitas agregar evidencias a las actividades sin foto.\n' : ''}Pulsa Corregir datos o Revisar actividades para hacer cambios. Entregar borrador lo deja disponible para revisión en la aplicación; no genera un informe aprobado ni un PDF automáticamente.`;
 }
 
-export function pregunta(sesion) {
+function preguntaGenerador(sesion) {
   if (sesion.etapa === 'datos') return `Datos del equipo · Paso ${sesion.campo + 1} de ${campos.length}\n${campos[sesion.campo][1]}\n\n${campos[sesion.campo][2]}${sesion.campo === 0 ? '\n\nPrimero reuniremos los datos y luego las actividades y fotos. Responde un dato por mensaje. El borrador del informe se crea al terminar los 8 datos.' : ''}${sesion.datos[campos[sesion.campo][0]] ? '\nRespuesta anterior: ' + sesion.datos[campos[sesion.campo][0]] : ''}`;
   if (sesion.etapa === 'cerrado') return 'Borrador entregado. Abre el historial de Electrizar para revisar evidencias, pendientes y generar el documento. Pulsa Nuevo informe para otra visita.';
   if (sesion.etapa === 'revision') return resumen(sesion);
@@ -68,7 +71,57 @@ function cambiar(sesion, uuid) {
   }
 }
 
-export function avanzar(previamente, texto, foto, operario, botUid, uuid = randomUUID) {
+const servicios = {generadores:'generador','aires acondicionados':'ac','alarmas contra incendio':'alarma','inspeccion electrica':'inspeccion'};
+const mensajeServicios = '¿Qué trabajo vas a registrar?\nElige Generadores, Aires acondicionados, Alarmas contra incendio o Inspección eléctrica.\nCada visita genera un borrador en la misma aplicación de Electrizar. La revisión, las firmas y los documentos se completan allí.';
+export const iniciaNuevaVisita = texto => ['/nuevo','nuevo informe'].includes(normalizar(texto));
+export function pregunta(sesion) {
+  if(sesion.etapa === 'servicio')return mensajeServicios;
+  if(esCatalogo(sesion))return 'Pulsa Mis informes, Abrir por código, Continuar informe o Nuevo informe.';
+  const texto=esGestion(sesion)?preguntaGestion(sesion):['ac','alarma','inspeccion'].includes(sesion.servicio) ? preguntaServicio(sesion) : preguntaGenerador(sesion);
+  return texto+(pideCodigo(sesion)&&sesion.codigoSugerido ? '\n\nConsecutivo anual sugerido: '+sesion.codigoSugerido+'. Se comparte entre AC, generadores, incendio y los demás servicios.' : '');
+}
+export function teclado(sesion) {
+  if(esCatalogo(sesion))return tecladoCatalogo(sesion);
+  let resultado;
+  if(!sesion || sesion.etapa === 'servicio')resultado={keyboard:[['Generadores','Aires acondicionados'],['Alarmas contra incendio'],['Inspección eléctrica']],resize_keyboard:true,is_persistent:true};
+  else resultado=esGestion(sesion)?tecladoGestion(sesion):['ac','alarma','inspeccion'].includes(sesion.servicio) ? tecladoServicio(sesion) : tecladoGenerador(sesion);
+  if(pideCodigo(sesion))resultado.keyboard.unshift(...(sesion.codigoSugerido?[[`Usar ${sesion.codigoSugerido}`]]:[]),['Sugerir código']);
+  if(!esGestion(sesion))resultado.keyboard.push(['Retomar informe','Mis informes'],['Abrir por código','Menú']);
+  return resultado;
+}
+export function avanzar(previamente,texto,foto,operario,botUid,uuid=randomUUID) {
+  if(iniciaNuevaVisita(texto)) {
+    const sesion={etapa:'servicio',base:'',pendiente:false};
+    const anteriorId=previamente?.informe?.id||previamente?.informeId||previamente?.ultimaId;
+    if(anteriorId)sesion.ultimaId=anteriorId;
+    if(previamente?.etapa==='datos'&&!previamente.informe){const {informe,...pausada}=previamente;sesion.pausada=pausada;}
+    return {sesion,texto:mensajeServicios};
+  }
+  if(!previamente || previamente.etapa === 'servicio') {
+    const servicio=servicios[normalizar(texto)];
+    if(!servicio || foto)return {sesion:previamente || {etapa:'servicio',base:'',pendiente:false},texto:mensajeServicios};
+    if(servicio === 'generador') {
+      const resultado=avanzarGenerador(null,'/nuevo',null,operario,botUid,uuid);
+      if(previamente?.ultimaId)resultado.sesion.ultimaId=previamente.ultimaId;
+      resultado.sesion.servicio='generador';return resultado;
+    }
+    const sesion=nuevaSesionServicio(servicio);if(previamente?.ultimaId)sesion.ultimaId=previamente.ultimaId;return {sesion,texto:preguntaServicio(sesion)};
+  }
+  const n=normalizar(texto);
+  if(esGestion(previamente)) {
+    const r=avanzarGestion(previamente,texto,foto,uuid);
+    if(!esGestion(r.sesion))r.texto=pregunta(r.sesion);
+    return r;
+  }
+  if(['editar textos','editar fotos','datos del informe'].includes(n)&&previamente.informe) {
+    const s=sesionDesdeInforme(previamente.informe);
+    if(s.etapa==='reabrirConfirmar')return {sesion:s,texto:pregunta(s)};
+    return avanzarGestion(s,texto,foto,uuid);
+  }
+  return ['ac','alarma','inspeccion'].includes(previamente.servicio) ? avanzarServicio(previamente,texto,foto,operario,botUid,uuid) : avanzarGenerador(previamente,texto,foto,operario,botUid,uuid);
+}
+
+function avanzarGenerador(previamente, texto, foto, operario, botUid, uuid = randomUUID) {
   const sesion = previamente ? structuredClone(previamente) : null;
   const comando = alias[normalizar(texto)] || normalizar(texto);
   if (comando === '/nuevo') {
@@ -78,7 +131,7 @@ export function avanzar(previamente, texto, foto, operario, botUid, uuid = rando
   }
   if (!sesion) return { sesion, texto: 'Bienvenido a Electrizar. Te guiaré para crear un borrador de mantenimiento de generador: datos del equipo, actividades, fotos y revisión final.\nPulsa Nuevo informe para comenzar. Puedes escribir /id para consultar tu identificación.' };
   if (comando === '/estado' || comando === '/start') return { sesion, texto: pregunta(sesion) };
-  if (comando === '/ayuda') return { sesion, texto: 'Cómo continuar\nResponde un dato por mensaje y espera mi siguiente pregunta. Usa los botones del teclado; si están ocultos, abre el teclado de botones de Telegram.\n\nVer avance: muestra dónde estás sin cambiar respuestas.\nVolver: regresa para corregir conservando las fotos.\nCorregir datos: modifica la identificación del informe ya creado.\nRevisar informe: muestra pendientes antes de entregar.\nReintentar: vuelve a comprobar un guardado pendiente.\n\nPor ahora puedo guiar mantenimientos de generadores. La revisión y el PDF se hacen en la aplicación.\n\n' + pregunta(sesion) };
+  if (comando === '/ayuda') return { sesion, texto: 'Cómo continuar\nResponde un dato por mensaje y espera mi siguiente pregunta. Usa los botones del teclado; si están ocultos, abre el teclado de botones de Telegram.\n\nVer avance: muestra dónde estás sin cambiar respuestas.\nVolver: regresa para corregir conservando las fotos.\nCorregir datos: modifica la identificación del informe ya creado.\nRevisar informe: muestra pendientes antes de entregar.\nReintentar: vuelve a comprobar un guardado pendiente.\n\nEn esta visita estás registrando un generador. La revisión y el PDF se hacen en la aplicación. Al entregar puedes iniciar otro servicio con Nuevo informe.\n\n' + pregunta(sesion) };
   if (comando === '/avance') return { sesion, texto: (sesion.informe ? `Avance · ${sesion.datos.codigo}\n${tareas(sesion).filter(tareaCompleta).length}/${tareas(sesion).length} actividades registradas · ${sesion.informe.elementos.reduce((n,el) => n + el.fotos.length,0)} fotos\n\n` : 'Estamos reuniendo los datos iniciales; todavía no se ha creado el informe.\n\n') + pregunta(sesion) };
   if (comando === '/reintentar') return { sesion, texto: 'Comprobando el guardado.' };
   if (sesion.pendiente) return { sesion, texto: 'El último cambio está pendiente de sincronizar. Usa /reintentar antes de continuar.' };
@@ -143,8 +196,8 @@ export function avanzar(previamente, texto, foto, operario, botUid, uuid = rando
     sesion.datos[campo] = comando === '/omitir' ? '' : valor;
     if (editando) {
       const d = sesion.datos;
-      Object.assign(sesion.informe,d,{propietario:d.direccion,tituloCorto:`Mantenimiento de generador ${d.equipo}`,
-        descripcion:[planesGenerador[d.plan],`Sede: ${d.direccion}`,`Fecha: ${d.fecha}`,d.marca,d.modelo,d.potencia,`Responsable: ${sesion.informe.tecnico}`].filter(Boolean).join(' · ')});
+      Object.assign(sesion.informe,d,{propietario:d.propietario || (sesion.informe.propietario===sesion.informe.direccion?d.direccion:sesion.informe.propietario) || d.direccion,tituloCorto:`Mantenimiento de generador ${d.equipo}`,
+        descripcion:[planesGenerador[d.plan],d.propietario&&`Cliente: ${d.propietario}`,`Sede: ${d.direccion}`,`Fecha: ${d.fecha}`,d.marca,d.modelo,d.potencia,`Responsable: ${sesion.informe.tecnico}`].filter(Boolean).join(' · ')});
       delete sesion.editarCampo;
       sesion.etapa = 'revision';
       cambiar(sesion,uuid);
@@ -154,7 +207,7 @@ export function avanzar(previamente, texto, foto, operario, botUid, uuid = rando
     if (sesion.campo === campos.length) {
       const d = sesion.datos;
       sesion.informe = {
-        ...d, id: `tg_${botUid}_${uuid()}`, createdAt: Date.now(), tipo: 'generador',
+        ...d, id: sesion.idReservado || `tg_${botUid}_${uuid()}`, createdAt: Date.now(), tipo: 'generador',
         propietario: d.direccion, tecnico: operario.nombre, origenTelegram: true, telegramOperario: operario.uid,
         tituloCorto: `Mantenimiento de generador ${d.equipo}`,
         descripcion: [planesGenerador[d.plan], `Sede: ${d.direccion}`, `Fecha: ${d.fecha}`, d.marca, d.modelo, d.potencia, `Responsable: ${operario.nombre}`].filter(Boolean).join(' · '),
