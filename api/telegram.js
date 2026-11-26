@@ -1,7 +1,7 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { doc, getDoc, runTransaction, setDoc } from 'firebase/firestore';
 import { conectarFirebase } from '../bot/firebase.mjs';
-import { avanzar } from '../bot/conversacion.mjs';
+import { avanzar, teclado } from '../bot/conversacion.mjs';
 import { guardarRemoto, leerRemoto } from '../src/almacenRemoto.ts';
 
 let conexion;
@@ -49,6 +49,7 @@ async function fotoDeTelegram(message) {
 async function completar(db, registro, documento, mensaje, operario, botUid) {
   let respuesta;
   let propuesto;
+  let botones = documento.pendiente?.botones ? JSON.parse(documento.pendiente.botones) : undefined;
   const pendiente = documento.pendiente;
   let sesion = documento.estado ? structuredClone(documento.estado) : null;
   if (sesion?.informeId && !(sesion.etapa === 'cerrado' && mensaje.text?.trim() === '/nuevo')) {
@@ -84,7 +85,9 @@ async function completar(db, registro, documento, mensaje, operario, botUid) {
     const resultado = avanzar(sesion, mensaje.text || '', foto, operario, botUid, identificadorEvento(pendiente.update));
     propuesto = resumirSesion(resultado.sesion);
     respuesta = resultado.texto;
-    await setDoc(registro, { pendiente: { ...pendiente, propuesta: propuesto, respuesta } }, { merge: true });
+    botones = teclado(resultado.sesion ? {...resultado.sesion,pendiente:false} : null);
+    // Firestore no admite matrices de matrices; el teclado de Telegram se conserva como JSON.
+    await setDoc(registro, { pendiente: { ...pendiente, propuesta: propuesto, respuesta, botones:JSON.stringify(botones) } }, { merge: true });
     if (resultado.sesion?.pendiente) {
       const s = resultado.sesion;
       await guardarRemoto(db, { id:s.informe.id, informe:s.informe, revision:s.revision, base:s.base, pendiente:true });
@@ -95,8 +98,8 @@ async function completar(db, registro, documento, mensaje, operario, botUid) {
     propuesto.pendiente = false;
     respuesta = 'Guardado en Electrizar.\n' + respuesta;
   }
-  if (propuesto?.etapa === 'cerrado' && process.env.APP_URL) respuesta += '\n' + process.env.APP_URL + '\nBusca el código ' + propuesto.datos.codigo + ' en el historial.';
-  await telegram('sendMessage', { chat_id: mensaje.chat.id, text: respuesta });
+  if (propuesto?.etapa === 'cerrado' && process.env.APP_URL) respuesta += '\n' + process.env.APP_URL.trim() + '\nBusca el código ' + propuesto.datos.codigo + ' en el historial.';
+  await telegram('sendMessage', { chat_id: mensaje.chat.id, text: respuesta, reply_markup: botones || teclado(propuesto) });
   await setDoc(registro, { estado:propuesto, ultimo:pendiente.update, pendiente:null }, { merge:true });
 }
 
@@ -143,7 +146,9 @@ export default async function handler(req, res) {
     });
     if (documento) await completar(db,registro,documento,mensaje,operario,cuenta.uid);
     return res.status(200).json({ ok:true });
-  } catch {
+  } catch (error) {
+    // Solo el código, nunca credenciales, mensajes del usuario ni cuerpos de solicitudes.
+    console.error('telegram: mensaje sin confirmar', typeof error?.code === 'string' ? error.code : 'operacion-fallida');
     // Un código distinto de 2xx permite que Telegram vuelva a entregar el mismo mensaje.
     return res.status(503).json({ error:'No se confirmó el mensaje. Se reintentará.' });
   } finally {
